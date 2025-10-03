@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "composite": true,
+    "lib": ["ESNext", "DOM"],
+    "allowSyntheticDefaultImports": true
+  }
+}

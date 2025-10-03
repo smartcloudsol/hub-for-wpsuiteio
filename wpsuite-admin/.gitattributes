@@ -1,0 +1,11 @@
+# Ignore tests, docs and examples when Composer creates the ZIP
+src                         export-ignore
+public                      export-ignore
+/.gitattributes             export-ignore
+/*.js                       export-ignore
+/*.cjs                      export-ignore
+/*.json                     export-ignore
+/*.ts                       export-ignore
+/*.lock                     export-ignore
+/*.html                     export-ignore
+/*.md                       export-ignore

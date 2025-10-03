@@ -1,0 +1,42 @@
+.info {
+  color: var(--mantine-color-dark-9);
+  align-self: center;
+  width: 100%;
+  @media (max-width: 820px) {
+    width: 90%;
+  }
+}
+
+.info .item {
+  color: var(--mantine-color-dark-7);
+  list-style-type: disc;
+  width: 90%;
+}
+
+.warning {
+  border: 1px solid var(--mantine-color-red-9) !important;
+}
+
+.radioCard {
+  position: relative;
+  padding: var(--mantine-spacing-md);
+  transition: border-color 150ms ease;
+
+  &[data-checked] {
+    border-color: var(--mantine-primary-color-filled);
+  }
+
+  &:hover {
+    background-color: var(--mantine-color-gray-0);
+  }
+}
+
+.dropdown {
+  z-index: 100001 !important;
+}
+
+@media (min-width: 30rem) {
+  [data-amplify-authenticator] [data-amplify-container] {
+    width: 100%;
+  }
+}

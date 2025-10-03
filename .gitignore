@@ -1,0 +1,7 @@
+*.zip
+/wpsuite*/node_modules
+/wpsuite-admin/public
+/**/paid-features/
+/**/scripts/
+/**/publish
+/**/index.html
