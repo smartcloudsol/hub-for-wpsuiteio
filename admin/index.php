@@ -316,7 +316,6 @@ class Admin
             'headers' => [
                 'Accept' => 'application/json',
                 'X-Site-Key' => $siteKey,
-                'X-Plugin' => 'wpsuite',
             ],
             'timeout' => 10,
         ];
