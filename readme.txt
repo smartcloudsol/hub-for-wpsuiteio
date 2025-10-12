@@ -24,6 +24,17 @@ Key features:
 
 Documentation: [WP Suite – Docs](https://wpsuite.io/docs/)
 
+== Free and Premium Usage Notice ==
+
+All WPSuite.io plugins works fully offline and provides all core functionality without any registration or subscription, but optional premium features 
+become available only after connecting your WordPress site to your WP Suite workspace.
+
+This connection uses a secure, frontend-only JavaScript authenticator (via AWS Amplify Authenticator) and never exposes any private keys or credentials on the server.
+
+All premium or billing-related interactions happen **client-side**, using standard **AWS Amplify** and **Stripe Elements / Checkout** components.  
+
+No external PHP code is loaded or executed, and no payment data ever passes through your WordPress installation.
+
 == Installation ==
 
 1. Upload the plugin files to `/wp-content/plugins/hub-for-wpsuiteio` or install directly from the WordPress plugin directory.
@@ -66,6 +77,24 @@ This plugin integrates with the following third-party services:
      - Terms of Service: https://aws.amazon.com/service-terms/  
      - Privacy Policy: https://aws.amazon.com/privacy/
 
+2. **Stripe**
+
+   - **What it is & what it’s used for:**  
+     Stripe is a PCI-compliant payment-processing platform.  
+     It is used to manage subscriptions and payments for optional premium plans across all WP Suite plugins.
+
+   - **What data is sent & when:**  
+     All communication with Stripe occurs **client-side** using official **Stripe Elements** or **Stripe Checkout** components.  
+     No payment information, card number, or billing details are handled by the plugin or transmitted through your WordPress server.
+
+   - **Endpoints called:**  
+     - `https://api.stripe.com`  
+     - `https://checkout.stripe.com`  
+
+   - **Links:**  
+     - Terms of Service: https://stripe.com/legal  
+     - Privacy Policy: https://stripe.com/privacy
+     
 == Client-Side Libraries ==
 
 1. **AWS Amplify Authenticator**  
@@ -80,16 +109,18 @@ This plugin integrates with the following third-party services:
      
 == Trademark Notice ==
 
+WordPress and the WordPress logo are trademarks of the WordPress Foundation.
+
 Amazon Web Services, AWS, and Amazon Cognito are trademarks of Amazon.com, Inc. or its affiliates.  
 
-Hub for is an independent open-source project and is **not affiliated with, sponsored by, or endorsed by Amazon Web Services**.
+Stripe and the Stripe logo are trademarks of Stripe, Inc. and its affiliates.
 
-All references to “Amazon Cognito” are made purely to describe this plugin’s interoperability.
+Hub for WPSuite.io is an independent open-source project and is **not affiliated with, sponsored by, or endorsed by WordPress.org, Amazon Web Services, or Stripe, Inc.**
 
 == Source & Build ==
 
 **Public (free) source code:**  
-All of the code that ships in this public ZIP (the “free” version) is published here: https://github.com/smartcloudsol/hub-for-wpsuiteio
+All of the code that ships in this public ZIP is published here: https://github.com/smartcloudsol/hub-for-wpsuiteio
 
 == Changelog ==
 
