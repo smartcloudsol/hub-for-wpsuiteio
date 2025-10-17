@@ -8,7 +8,7 @@ import { Authenticator } from "@aws-amplify/ui-react";
 import { __experimentalHeading as Heading } from "@wordpress/components";
 import { __ } from "@wordpress/i18n";
 
-import { DEFAULT_THEME, Title, Text, Stack } from "@mantine/core";
+import { DEFAULT_THEME, Text, Stack } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 
 import { TEXT_DOMAIN } from "@smart-cloud/wpsuite-core";

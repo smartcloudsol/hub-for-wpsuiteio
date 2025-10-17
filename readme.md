@@ -1,6 +1,6 @@
 # Hub for WPSuite.io
 
-This repository contains the source code and frontend modules for the **Hub for WPSuite.io** WordPress plugin.  
+This repository contains the source code and frontend modules for the **Hub for WPSuite.io**.
 The Hub centralises **licence management** and **site connection** across all WPSuite plugins (including Gatey).  
 
 ![Node.js](https://img.shields.io/badge/node-%3E%3D16.x-blue.svg)
@@ -17,7 +17,6 @@ You can find the continuously expanding, detailed documentation at:
 - `wpsuite-core/`: Shared JavaScript modules (licence handling, site connection)
 - `wpsuite-admin/`: Logic for the WordPress admin interface
 - `dist/` folders: Contain compiled and minified frontend output
-- Plugin PHP code and metadata (e.g. `readme.txt`) are located in the **project root**
 
 ## Installation and Build Guide
 

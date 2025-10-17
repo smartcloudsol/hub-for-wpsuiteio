@@ -1,6 +1,6 @@
 {
   "name": "@smart-cloud/wpsuite-core",
-  "version": "1.0.0",
+  "version": "1.0.6",
   "description": "WP Suite Core package",
   "author": "Smart Cloud Solutions Inc.",
   "license": "MIT",
@@ -14,24 +14,26 @@
   "scripts": {
     "build": "tsup --minify",
     "lint": "eslint 'src/**/*.ts' --report-unused-disable-directives --max-warnings 0",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "publish": "WPSUITE_PREMIUM=true tsup --minify && npm publish --access=public"
   },
   "publishConfig": {
-    "registry": "https://gitlab.smart-cloud-solutions.com/api/v4/projects/48/packages/npm/"
+    "registry": "https://registry.npmjs.org/",
+    "scope": "@smart-cloud/wpsuite-core"
   },
   "dependencies": {
-    "@wordpress/data": "^10.31.0",
+    "@wordpress/data": "^10.32.0",
     "jose": "^6.1.0",
-    "tldts": "^7.0.16"
+    "tldts": "^7.0.17"
   },
   "devDependencies": {
-    "@types/node": "^24.5.2",
-    "@typescript-eslint/eslint-plugin": "^8.44.1",
-    "@typescript-eslint/parser": "^8.44.1",
-    "eslint": "^9.36.0",
+    "@types/node": "^24.8.1",
+    "@typescript-eslint/eslint-plugin": "^8.46.1",
+    "@typescript-eslint/parser": "^8.46.1",
+    "eslint": "^9.37.0",
     "ts-node": "^10.9.2",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.2",
-    "typescript-eslint": "^8.44.1"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.1"
   }
 }

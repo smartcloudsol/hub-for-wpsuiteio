@@ -1,6 +1,3 @@
-declare const deobfuscate: (blob: string, key: number) => string;
-declare const decryptData: (encryptedText: string, salt: number) => Promise<Record<string, unknown> | undefined>;
-
 declare global {
     const WpSuite: WpSuite;
 }
@@ -22,4 +19,4 @@ interface WpSuite {
 type SubscriptionType = "PROFESSIONAL" | "AGENCY";
 declare const getConfig: (plugin: string) => Promise<Record<string, unknown> | null>;
 
-export { type SiteSettings, type SubscriptionType, TEXT_DOMAIN, WpSuite, decryptData, deobfuscate, getConfig };
+export { type SiteSettings, type SubscriptionType, TEXT_DOMAIN, WpSuite, getConfig };

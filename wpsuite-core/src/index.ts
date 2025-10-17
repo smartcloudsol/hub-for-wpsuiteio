@@ -34,5 +34,3 @@ export const getConfig = async (
   }
   return config;
 };
-
-export { deobfuscate, decryptData } from "./utils";
