@@ -2,7 +2,7 @@
 
 namespace SmartCloud\WPSuite\Hub;
 
-const HUB_VERSION = '1.0.0';
+const HUB_VERSION = '1.1.0';
 
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly.
@@ -14,21 +14,24 @@ final class Loader
 
     private string $plugin;
 
+    private string $text_domain;
+
     /** Hub admin instance */
     private HubAdmin $admin;
 
-    private function __construct($plugin)
+    private function __construct($plugin, $text_domain)
     {
         $this->plugin = $plugin;
+        $this->text_domain = $text_domain;
         $this->includes();
     }
 
     /**
      * Access the singleton instance.
      */
-    public static function instance($plugin): Loader
+    public static function instance($plugin, $text_domain): Loader
     {
-        return self::$instance ?? (self::$instance = new self($plugin));
+        return self::$instance ?? (self::$instance = new self($plugin, $text_domain));
     }
 
     private function includes()

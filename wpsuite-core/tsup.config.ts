@@ -22,6 +22,7 @@ export default defineConfig({
   splitting: false,
   sourcemap: false,
   clean: true,
+  external: ["@wordpress/data"],
   define: {
     __WPSUITE_PREMIUM__: String(premium),
     __OB_KEY_EXPR__: JSON.stringify(constants.__OB_KEY_EXPR__),

@@ -6,16 +6,16 @@ import {
   useAuthenticator,
 } from "@aws-amplify/ui-react";
 import {
-  DEFAULT_THEME,
   ActionIcon,
   Alert,
   Badge,
   Button,
   Card,
   Code,
+  DEFAULT_THEME,
   Flex,
-  Group,
   Grid,
+  Group,
   HoverCard,
   List,
   LoadingOverlay,
@@ -23,28 +23,26 @@ import {
   Modal,
   Pagination,
   Radio,
+  rem,
   SegmentedControl,
   Select,
   Skeleton,
   Stack,
   Text,
   TextInput,
-  VisuallyHidden,
   Title,
   Tooltip,
   useModalsStack,
-  rem,
+  VisuallyHidden,
 } from "@mantine/core";
-import { modals } from "@mantine/modals";
-import { notifications } from "@mantine/notifications";
 import { useForm } from "@mantine/form";
-import { zod4Resolver } from "mantine-form-zod-resolver";
 import {
+  useDebouncedValue,
   useMediaQuery,
   useViewportSize,
-  useDebouncedValue,
 } from "@mantine/hooks";
-import { __ } from "@wordpress/i18n";
+import { modals } from "@mantine/modals";
+import { notifications } from "@mantine/notifications";
 import {
   getConfig,
   TEXT_DOMAIN,
@@ -52,42 +50,45 @@ import {
   type SubscriptionType,
 } from "@smart-cloud/wpsuite-core";
 import {
-  IconArrowsUp,
   IconAlertCircle,
-  IconMoneybagHeart,
+  IconArrowsUp,
   IconCancel,
   IconCheck,
+  IconClearAll,
   IconCreditCard,
+  IconEdit,
   IconInfoCircle,
   IconLink,
-  IconClearAll,
   IconLogin,
   IconLogout,
+  IconMoneybagHeart,
   IconPlus,
   IconReload,
   IconSettings,
-  IconEdit,
   IconTrash,
   IconUser,
   IconX,
 } from "@tabler/icons-react";
 import {
+  useInfiniteQuery,
   useMutation,
   useQuery,
-  useInfiniteQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { __ } from "@wordpress/i18n";
 import * as API from "aws-amplify/api";
+import { zod4Resolver } from "mantine-form-zod-resolver";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type FunctionComponent,
 } from "react";
 import { z } from "zod";
 import { type LicenseHandlerProps } from "./index";
-import { EmailSkeleton, FullSkeleton } from "./skeletons";
 import classes from "./settings.module.css";
+import { EmailSkeleton, FullSkeleton } from "./skeletons";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -142,7 +143,7 @@ export interface SettingsProps extends LicenseHandlerProps {
   nonce: string;
 }
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 3;
 
 export const Settings: FunctionComponent<SettingsProps> = (
   props: SettingsProps
@@ -150,7 +151,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
   const {
     amplifyConfigured,
     apiUrl,
-    ownedAccountId,
+    ownAccountId,
     accountId,
     siteId,
     siteKey,
@@ -159,7 +160,6 @@ export const Settings: FunctionComponent<SettingsProps> = (
     setSiteId,
     setSiteKey,
   } = props;
-  const [email, setEmail] = useState<string>();
   const [
     creatingUpdateSubscriptionSession,
     setCreatingUpdateSubscriptionSession,
@@ -167,20 +167,27 @@ export const Settings: FunctionComponent<SettingsProps> = (
   const [mutatingSubscription, setMutatingSubscription] = useState<
     "cancel" | "cancel_schedule" | "renew"
   >();
-  const [customerId, setCustomerId] = useState<string | null>();
-  const [clientSecret, setClientSecret] = useState<string | null>();
-  const [site, setSite] = useState<Site | null>();
-  const [subscription, setSubscription] = useState<
-    Site["subscription"] | null
-  >();
-  const [subscriptionType, setSubscriptionType] =
-    useState<SubscriptionType | null>();
 
   const { authStatus, toSignIn, signOut } = useAuthenticator((context) => [
     context.user,
     context.authStatus,
     context.route,
   ]);
+  const loadSiteEnabled =
+    !!accountId && !!siteId && (authStatus === "authenticated" || !!siteKey);
+
+  const [email, setEmail] = useState<string>();
+  const [customerId, setCustomerId] = useState<string | null>();
+  const [clientSecret, setClientSecret] = useState<string | null>();
+  const [site, setSite] = useState<Site | null | undefined>(
+    loadSiteEnabled ? undefined : null
+  );
+  const [subscription, setSubscription] = useState<
+    Site["subscription"] | null | undefined
+  >(accountId || siteId ? undefined : null);
+  const [subscriptionType, setSubscriptionType] = useState<
+    SubscriptionType | null | undefined
+  >(accountId || siteId ? undefined : null);
 
   const isMobile = useMediaQuery(
     `(max-width: ${DEFAULT_THEME.breakpoints.sm})`
@@ -191,9 +198,6 @@ export const Settings: FunctionComponent<SettingsProps> = (
   const stack = useModalsStack(["connect-your-site", "prices"]);
 
   const queryClient = useQueryClient();
-
-  const loadSiteEnabled =
-    !!accountId && !!siteId && (authStatus === "authenticated" || !!siteKey);
 
   const cancelOrNewSubscription = useMutation({
     mutationFn: ({
@@ -397,19 +401,42 @@ export const Settings: FunctionComponent<SettingsProps> = (
     [cancelOrNewSubscription]
   );
 
-  const { data: accountRecord, isError: isAccountError } = useQuery({
+  const { isError: isAccountError } = useQuery({
     queryKey: ["account", accountId],
-    queryFn: () => fetchAccount(accountId!),
+    queryFn: () =>
+      fetchAccount(accountId!)
+        .then((data) => {
+          if (data) {
+            setCustomerId(data.customer ? (data?.customerId as string) : null);
+          } else if (
+            authStatus === "authenticated" &&
+            (!accountId || isAccountError)
+          ) {
+            setCustomerId(null);
+          }
+          return data;
+        })
+        .catch(() => {
+          setSubscription(null);
+        }),
     enabled: !!accountId && authStatus === "authenticated",
   });
 
-  const {
-    data: siteRecord,
-    isError: isSiteError,
-    isPending: isSitePending,
-  } = useQuery({
+  const { isError: isSiteError, isPending: isSitePending } = useQuery({
     queryKey: ["site", accountId, siteId],
-    queryFn: () => fetchSite(accountId!, siteId!, siteKey),
+    queryFn: () =>
+      fetchSite(accountId!, siteId!, siteKey)
+        .then((data) => {
+          setSubscriptionType(data.subscriptionType ?? null);
+          setSubscription(data.subscription);
+          setSite(data);
+          return data;
+        })
+        .catch((err) => {
+          setSite(null);
+          setSubscription(null);
+          throw err;
+        }),
     enabled: loadSiteEnabled,
   });
 
@@ -611,84 +638,88 @@ export const Settings: FunctionComponent<SettingsProps> = (
               >
                 Clear Cache
               </Menu.Item>
-              {authStatus === "authenticated" &&
-                ownedAccountId === accountId && (
-                  <>
-                    <Menu.Divider />
-                    <Menu.Label>Subscription</Menu.Label>
-                    {subscriptionType === null && (
-                      <Menu.Item
-                        leftSection={<IconCreditCard size={16} />}
-                        onClick={() => openPricingTable()}
-                      >
-                        Plans &amp; Pricing
-                      </Menu.Item>
+              {authStatus === "authenticated" && (
+                <>
+                  <Menu.Divider />
+                  <Menu.Label>Subscription</Menu.Label>
+                  {subscriptionType === null && (
+                    <Menu.Item
+                      leftSection={<IconCreditCard size={16} />}
+                      onClick={() => openPricingTable()}
+                      disabled={ownAccountId !== accountId}
+                    >
+                      Plans &amp; Pricing
+                    </Menu.Item>
+                  )}
+                  {site &&
+                    subscriptionType !== null &&
+                    subscription &&
+                    !isAccountError && (
+                      <>
+                        <Menu.Item
+                          leftSection={<IconCreditCard size={16} />}
+                          disabled={
+                            ownAccountId !== accountId ||
+                            !!creatingUpdateSubscriptionSession ||
+                            !!mutatingSubscription
+                          }
+                          onClick={() => openBillingPortalSession()}
+                        >
+                          Manage Billing
+                        </Menu.Item>
+                        <Menu.Item
+                          leftSection={<IconArrowsUp size={16} />}
+                          disabled={
+                            ownAccountId !== accountId ||
+                            !!creatingUpdateSubscriptionSession ||
+                            !!mutatingSubscription
+                          }
+                          onClick={() => openBillingPortalSession("update")}
+                        >
+                          Update
+                        </Menu.Item>
+                        {(subscription.cancelAtPeriodEnd ||
+                          (subscription.nextSubscriptionType &&
+                            subscription.nextSubscriptionType !==
+                              subscriptionType)) && (
+                          <Menu.Item
+                            leftSection={<IconReload size={16} />}
+                            disabled={
+                              ownAccountId !== accountId ||
+                              !!creatingUpdateSubscriptionSession ||
+                              !!mutatingSubscription
+                            }
+                            onClick={() =>
+                              openModal(
+                                site,
+                                subscription.cancelAtPeriodEnd
+                                  ? "renew"
+                                  : "cancel_schedule"
+                              )
+                            }
+                          >
+                            {subscription.cancelAtPeriodEnd
+                              ? "Renew"
+                              : "Cancel Scheduled Update"}
+                          </Menu.Item>
+                        )}
+                        {!subscription.cancelAtPeriodEnd && (
+                          <Menu.Item
+                            leftSection={<IconCancel size={16} />}
+                            disabled={
+                              ownAccountId !== accountId ||
+                              !!creatingUpdateSubscriptionSession ||
+                              !!mutatingSubscription
+                            }
+                            onClick={() => openModal(site, "cancel")}
+                          >
+                            Cancel
+                          </Menu.Item>
+                        )}
+                      </>
                     )}
-                    {site &&
-                      subscriptionType !== null &&
-                      subscription &&
-                      !isAccountError && (
-                        <>
-                          <Menu.Item
-                            leftSection={<IconCreditCard size={16} />}
-                            disabled={
-                              !!creatingUpdateSubscriptionSession ||
-                              !!mutatingSubscription
-                            }
-                            onClick={() => openBillingPortalSession()}
-                          >
-                            Manage Billing
-                          </Menu.Item>
-                          <Menu.Item
-                            leftSection={<IconArrowsUp size={16} />}
-                            disabled={
-                              !!creatingUpdateSubscriptionSession ||
-                              !!mutatingSubscription
-                            }
-                            onClick={() => openBillingPortalSession("update")}
-                          >
-                            Update
-                          </Menu.Item>
-                          {(subscription.cancelAtPeriodEnd ||
-                            (subscription.nextSubscriptionType &&
-                              subscription.nextSubscriptionType !==
-                                subscriptionType)) && (
-                            <Menu.Item
-                              leftSection={<IconReload size={16} />}
-                              disabled={
-                                !!creatingUpdateSubscriptionSession ||
-                                !!mutatingSubscription
-                              }
-                              onClick={() =>
-                                openModal(
-                                  site,
-                                  subscription.cancelAtPeriodEnd
-                                    ? "renew"
-                                    : "cancel_schedule"
-                                )
-                              }
-                            >
-                              {subscription.cancelAtPeriodEnd
-                                ? "Renew"
-                                : "Cancel Scheduled Update"}
-                            </Menu.Item>
-                          )}
-                          {!subscription.cancelAtPeriodEnd && (
-                            <Menu.Item
-                              leftSection={<IconCancel size={16} />}
-                              disabled={
-                                !!creatingUpdateSubscriptionSession ||
-                                !!mutatingSubscription
-                              }
-                              onClick={() => openModal(site, "cancel")}
-                            >
-                              Cancel
-                            </Menu.Item>
-                          )}
-                        </>
-                      )}
-                  </>
-                )}
+                </>
+              )}
             </>
           ) : (
             <Menu.Item
@@ -712,7 +743,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
     openBillingPortalSession,
     openModal,
     openPricingTable,
-    ownedAccountId,
+    ownAccountId,
     site,
     siteId,
     stack,
@@ -729,41 +760,14 @@ export const Settings: FunctionComponent<SettingsProps> = (
   }, [apiUrl, authStatus]);
 
   useEffect(() => {
-    if (accountRecord) {
-      setClientSecret(undefined);
-      setCustomerId(
-        accountRecord.customer ? (accountRecord?.customerId as string) : null
+    if (accountId && siteId) {
+      getConfig("wpsuite").then((config) =>
+        config && (config["subscriptionType"] as SubscriptionType)
+          ? setSubscriptionType(config["subscriptionType"] as SubscriptionType)
+          : setSubscriptionType(null)
       );
-    } else if (
-      authStatus === "authenticated" &&
-      (!accountId || isAccountError)
-    ) {
-      setClientSecret(undefined);
-      setCustomerId(null);
     }
-  }, [accountRecord, accountId, authStatus, isAccountError]);
-
-  useEffect(() => {
-    if (site) {
-      setSubscriptionType(site.subscriptionType ?? null);
-      setSubscription(site.subscription);
-    } else {
-      if (accountId && siteId) {
-        getConfig("wpsuite").then((config) =>
-          config && (config["subscriptionType"] as SubscriptionType)
-            ? setSubscriptionType(
-                config["subscriptionType"] as SubscriptionType
-              )
-            : setSubscriptionType(null)
-        );
-      } else {
-        setSubscriptionType(null);
-      }
-      if ((!accountId && !siteId) || isAccountError || isSiteError) {
-        setSubscription(null);
-      }
-    }
-  }, [accountId, authStatus, isAccountError, isSiteError, site, siteId]);
+  }, [accountId, siteId]);
 
   useEffect(() => {
     if (authStatus === "authenticated" || authStatus === "unauthenticated") {
@@ -778,21 +782,6 @@ export const Settings: FunctionComponent<SettingsProps> = (
       });
     }
   }, [accountId, amplifyConfigured, authStatus, queryClient, siteId]);
-
-  useEffect(() => {
-    if (authStatus !== "authenticated") {
-      setCustomerId(null);
-      setClientSecret(undefined);
-      //setSubscription(null);
-      //setSubscriptionType(undefined);
-    }
-  }, [authStatus]);
-
-  useEffect(() => {
-    if (isSiteError || !isSitePending || !loadSiteEnabled) {
-      setSite(isSiteError ? null : siteRecord ?? null);
-    }
-  }, [siteRecord, loadSiteEnabled, isSitePending, isSiteError]);
 
   return (
     <Group
@@ -831,7 +820,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
           >
             <SiteSelector
               authStatus={authStatus}
-              accountId={ownedAccountId ?? accountId}
+              accountId={ownAccountId ?? accountId}
               siteId={siteId}
               siteKey={siteKey}
               subscriber={!!subscriptionType}
@@ -857,6 +846,10 @@ export const Settings: FunctionComponent<SettingsProps> = (
               Plans and Pricing
             </Text>
           }
+          onClose={() => {
+            setClientSecret(undefined);
+            stack.close("prices");
+          }}
         >
           {clientSecret !== undefined &&
             email !== undefined &&
@@ -1016,7 +1009,10 @@ export const Settings: FunctionComponent<SettingsProps> = (
             )}
             <Button
               variant="outline"
-              onClick={signOut}
+              onClick={() => {
+                signOut();
+                setCustomerId(null);
+              }}
               leftSection={<IconLogout size={16} />}
             >
               Sign Out
@@ -1042,13 +1038,13 @@ export const Settings: FunctionComponent<SettingsProps> = (
                 w="fit-content"
                 visible={site === undefined && isSitePending}
               >
-                {accountId && siteId && !isAccountError && !isSiteError ? (
+                {accountId && siteId && !isSiteError ? (
                   <Badge color="green" miw={100}>
                     Connected
                   </Badge>
                 ) : (
                   <Badge color="grey" miw={120}>
-                    {accountId && siteId && !site
+                    {accountId && siteId
                       ? "Connected (unreachable)"
                       : "Not connected"}
                   </Badge>
@@ -1068,13 +1064,13 @@ export const Settings: FunctionComponent<SettingsProps> = (
                   w="fit-content"
                   visible={site === undefined && isSitePending}
                 >
-                  {accountId && siteId && !isAccountError && !isSiteError ? (
+                  {accountId && siteId && !isSiteError ? (
                     <Badge color="green" miw={100}>
                       Connected
                     </Badge>
                   ) : (
                     <Badge color="grey" miw={120}>
-                      {accountId && siteId && !site
+                      {accountId && siteId
                         ? "Connected (unreachable)"
                         : "Not connected"}
                     </Badge>
@@ -1466,10 +1462,7 @@ function SiteSelector({
 }: SiteSelectorProps) {
   const [sitesReloading, setSitesReloading] = useState(false);
   const [siteConnecting, setSiteConnecting] = useState(false);
-  const [sites, setSites] = useState<Site[] | undefined>();
-  const [currentPage, setCurrentPage] = useState<Site[] | undefined>();
   const [activePage, setActivePage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
 
   const [siteEditing, setSiteEditing] = useState<boolean>(false);
   const [selectedAccountId, setSelectedAccountId] = useState<
@@ -1508,7 +1501,13 @@ function SiteSelector({
         path: "/account",
       })
         .response.then((res) => res.body.json())
-        .then((result) => result as unknown as Account[])
+        .then((result) => {
+          const data = result as unknown as Account[];
+          if (!selectedAccountId) {
+            setSelectedAccountId(data[0].accountId);
+          }
+          return data;
+        })
         .catch((err) => {
           console.error("Error fetching workspaces:", err);
           throw err;
@@ -1516,7 +1515,7 @@ function SiteSelector({
         .finally(() => {
           setSitesReloading(false);
         }),
-    []
+    [selectedAccountId]
   );
 
   const fetchSites = useCallback(
@@ -1578,8 +1577,24 @@ function SiteSelector({
     select: (data) => ({
       pages: data.pages.filter((p) => p.list.length > 0),
     }),
+
     enabled: !!selectedAccountId && authStatus === "authenticated",
   });
+
+  const sites = useMemo(
+    () => sitesRecord?.pages.flatMap((p) => (p as ListPage<Site>).list) ?? [],
+    [sitesRecord]
+  );
+
+  const totalPages = useMemo(
+    () => Math.max(sitesRecord?.pages.length ?? 0, 1),
+    [sitesRecord]
+  );
+
+  if (totalPages > 0 && activePage > totalPages) {
+    console.log("Adjusting active page from", activePage, "to", totalPages);
+    setActivePage(totalPages);
+  }
 
   const handleNextPage = useCallback(
     (page: number) => {
@@ -1675,16 +1690,25 @@ function SiteSelector({
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ["sites"] });
       const prev = queryClient.getQueryData(["sites"]);
-      queryClient.setQueryData(["sites"], (data: typeof sitesRecord) => {
-        if (!data) return data;
-        return {
-          ...data,
-          pages: data.pages.map((p: ListPage<Site>) => ({
-            ...p,
-            list: p.list.filter((s: Site) => s.siteId !== id),
-          })),
-        };
-      });
+      queryClient.setQueryData(
+        ["sites"],
+        (
+          data:
+            | {
+                pages: ListPage<Site>[];
+              }
+            | undefined
+        ) => {
+          if (!data) return data;
+          return {
+            ...data,
+            pages: data.pages.map((p: ListPage<Site>) => ({
+              ...p,
+              list: p.list.filter((s: Site) => s.siteId !== id),
+            })),
+          };
+        }
+      );
       return { prev };
     },
     onSuccess: () => {
@@ -1698,35 +1722,10 @@ function SiteSelector({
     },
   });
 
-  useEffect(() => {
-    if (!selectedAccountId && accountsRecord?.length) {
-      setSelectedAccountId(accountsRecord[0].accountId);
-    }
-  }, [selectedAccountId, accountsRecord]);
-
-  useEffect(() => {
-    if (sitesRecord?.pages) {
-      setSites(
-        sitesRecord.pages.flatMap((p) => (p as ListPage<Site>).list) ?? []
-      );
-      setTotalPages(Math.max(sitesRecord.pages.length, 1));
-    }
-  }, [sitesRecord]);
-
-  useEffect(() => {
-    if (totalPages > 0 && activePage > totalPages) {
-      setActivePage(totalPages);
-    }
-  }, [activePage, totalPages]);
-
-  useEffect(() => {
+  const currentPage = useMemo(() => {
     const start = (activePage - 1) * PAGE_SIZE;
-    setCurrentPage(sites?.slice(start, start + PAGE_SIZE));
+    return sites?.slice(start, start + PAGE_SIZE);
   }, [sites, activePage]);
-
-  useEffect(() => {
-    setActivePage(1);
-  }, [debouncedFilter]);
 
   if (accountsPending) {
     return <SiteSelectorSkeleton />;
@@ -1755,7 +1754,6 @@ function SiteSelector({
                   setSelectedSiteSubscriber(
                     value === accountId ? subscriber : undefined
                   );
-                  setCurrentPage(undefined);
                   setActivePage(1);
                   setSiteEditing(false);
                 }
@@ -1806,7 +1804,10 @@ function SiteSelector({
                 placeholder="Filter…"
                 size="xs"
                 value={filter}
-                onChange={(e) => setFilter(e.currentTarget.value)}
+                onChange={(e) => {
+                  setFilter(e.currentTarget.value);
+                  setActivePage(1);
+                }}
               />
             </Group>
             <Skeleton
@@ -1973,7 +1974,7 @@ function SiteSelector({
                                   withCloseButton: false,
                                   onConfirm: () =>
                                     deleteSiteMutation.mutate(site.siteId),
-                                  zIndex: 100000,
+                                  zIndex: 100002,
                                   xOffset: "1dvh",
                                   yOffset: "1dvh",
                                   centered: true,
@@ -2134,7 +2135,6 @@ async function fetchAccount(accountId: string) {
     path: `/account/${accountId}`,
   }).response;
   const body = await response.body.json();
-
   return body as unknown as Account;
 }
 

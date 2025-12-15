@@ -14,7 +14,7 @@ export interface LicenseHandlerProps extends PropsWithChildren {
   apiUrl: string;
   stripePublicKey: string;
   pricingTable: string;
-  ownedAccountId?: string;
+  ownAccountId?: string;
   accountId?: string;
   siteId?: string;
   siteKey?: string;

@@ -17,7 +17,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["node", "jquery"]
+    "types": ["node", "jquery", "dom-chromium-ai"]
   },
   "include": ["src"],
   "references": [

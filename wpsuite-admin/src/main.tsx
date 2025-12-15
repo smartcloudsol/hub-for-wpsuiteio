@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { fetchAuthSession } from "@aws-amplify/auth";
+import { Authenticator } from "@aws-amplify/ui-react";
 import { useQuery } from "@tanstack/react-query";
 import { Amplify } from "aws-amplify";
 import { Hub } from "aws-amplify/utils";
-import { fetchAuthSession } from "@aws-amplify/auth";
-import { Authenticator } from "@aws-amplify/ui-react";
+import { useCallback, useEffect, useState } from "react";
 
 import { __experimentalHeading as Heading } from "@wordpress/components";
 import { __ } from "@wordpress/i18n";
 
-import { DEFAULT_THEME, Text, Stack } from "@mantine/core";
+import { DEFAULT_THEME, Stack, Text } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 
 import { TEXT_DOMAIN } from "@smart-cloud/wpsuite-core";
@@ -38,7 +38,10 @@ const configUrl =
 const Main = (props: MainProps) => {
   const { nonce } = props;
 
-  const [ownedAccountId, setOwnedAccountId] = useState<string>();
+  const [amplifyConfigured, setAmplifyConfigured] = useState<
+    boolean | undefined
+  >();
+  const [ownAccountId, setOwnAccountId] = useState<string>();
   const [accountId, setAccountId] = useState<string | undefined>(
     WpSuite.siteSettings.accountId
   );
@@ -48,15 +51,12 @@ const Main = (props: MainProps) => {
   const [siteKey, setSiteKey] = useState<string | undefined>(
     WpSuite.siteSettings.siteKey
   );
-  const [amplifyConfigured, setAmplifyConfigured] = useState<
-    boolean | undefined
-  >();
 
   const isMobile = useMediaQuery(
     `(max-width: ${DEFAULT_THEME.breakpoints.sm})`
   );
 
-  const { data: configuration, error: configurationError } = useQuery({
+  const { data: configuration } = useQuery({
     queryKey: ["config"],
     queryFn: async () => {
       const response = await fetch(configUrl).catch((err) => {
@@ -92,12 +92,57 @@ const Main = (props: MainProps) => {
           }),
         };
       });
-
       if (!response.ok) {
+        console.error("Error loading configuration:", await response.json());
+        setAmplifyConfigured(false);
         throw new Error(response.statusText);
       }
 
-      return response.json();
+      const result = await response.json();
+      const rc = {
+        Auth: {
+          Cognito: {
+            userPoolId: result.userPoolId,
+            userPoolClientId: result.appClientPlugin,
+            identityPoolId: result.identityPoolId,
+          },
+        },
+        API: {
+          REST: {
+            backend: {
+              endpoint: apiUrl,
+            },
+            backendWithIam: {
+              endpoint: apiUrl,
+            },
+          },
+        },
+      };
+      const los: Record<string, unknown> = {
+        API: {
+          REST: {
+            headers: async (options: { apiName: string }) => {
+              if (options.apiName === "backend") {
+                try {
+                  const authSession = await fetchAuthSession();
+                  if (authSession?.tokens?.accessToken) {
+                    return {
+                      Authorization: `Bearer ${authSession.tokens.accessToken}`,
+                    };
+                  }
+                } catch (err) {
+                  console.error(err);
+                }
+              }
+              return {};
+            },
+          },
+        },
+      };
+      Amplify.configure(rc, los);
+      await checkAccount();
+      setAmplifyConfigured(true);
+      return result;
     },
   });
 
@@ -106,7 +151,7 @@ const Main = (props: MainProps) => {
       const authSession = await fetchAuthSession();
       const scopes =
         authSession.tokens?.accessToken.payload["scope"]?.split(" ") ?? [];
-      setOwnedAccountId(undefined);
+      setOwnAccountId(undefined);
       if (
         accountId &&
         !scopes.includes("sc.account.owner." + accountId) &&
@@ -124,77 +169,14 @@ const Main = (props: MainProps) => {
           ?.split(".")[3];
 
         if (accId) {
-          setOwnedAccountId(accId);
+          setOwnAccountId(accId);
         }
       }
     } catch (err) {
       console.error(err);
-      setOwnedAccountId(undefined);
+      setOwnAccountId(undefined);
     }
   }, [accountId]);
-
-  useEffect(() => {
-    if (!amplifyConfigured) {
-      if (
-        configuration?.userPoolId &&
-        configuration?.appClientPlugin &&
-        configuration?.identityPoolId
-      ) {
-        const rc = {
-          Auth: {
-            Cognito: {
-              userPoolId: configuration.userPoolId,
-              userPoolClientId: configuration.appClientPlugin,
-              identityPoolId: configuration.identityPoolId,
-            },
-          },
-          API: {
-            REST: {
-              backend: {
-                endpoint: apiUrl,
-              },
-              backendWithIam: {
-                endpoint: apiUrl,
-              },
-            },
-          },
-        };
-        const los: Record<string, unknown> = {
-          API: {
-            REST: {
-              headers: async (options: { apiName: string }) => {
-                if (options.apiName === "backend") {
-                  try {
-                    const authSession = await fetchAuthSession();
-                    if (authSession?.tokens?.accessToken) {
-                      return {
-                        Authorization: `Bearer ${authSession.tokens.accessToken}`,
-                      };
-                    }
-                  } catch (err) {
-                    console.error(err);
-                  }
-                }
-                return {};
-              },
-            },
-          },
-        };
-        Amplify.configure(rc, los);
-        checkAccount();
-        setAmplifyConfigured(true);
-      } else if (configurationError) {
-        console.error("Error loading configuration:", configurationError);
-        setAmplifyConfigured(false);
-      }
-    }
-  }, [
-    configuration,
-    props,
-    amplifyConfigured,
-    checkAccount,
-    configurationError,
-  ]);
 
   useEffect(() => {
     const stopCb = Hub.listen("auth", (data) => {
@@ -242,7 +224,7 @@ const Main = (props: MainProps) => {
             stripePublicKey={configuration?.stripePublicKey}
             pricingTable={configuration?.pricingTable}
             accountId={accountId}
-            ownedAccountId={ownedAccountId ?? accountId}
+            ownAccountId={ownAccountId ?? accountId}
             siteId={siteId}
             siteKey={siteKey}
             setAccountId={setAccountId}
