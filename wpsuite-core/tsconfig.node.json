@@ -1,10 +1,13 @@
 {
   "compilerOptions": {
-    "target": "ES2024",
-    "module": "ESNext",
+    "target": "es2024",
+    "module": "esnext",
     "moduleResolution": "bundler",
     "composite": true,
-    "lib": ["ESNext", "DOM"],
-    "allowSyntheticDefaultImports": true
-  }
+    "lib": ["ES2024"],
+    "allowSyntheticDefaultImports": true,
+    "types": ["node"]
+  },
+  "include": ["tsup.config.ts", "tsup.loader.ts", "scripts/**/*.ts"],
+  "exclude": ["src/**", "dist/**", "node_modules/**"]
 }

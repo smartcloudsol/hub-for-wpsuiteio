@@ -1,6 +1,6 @@
 {
   "name": "@smart-cloud/wpsuite-core",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "WP Suite Core package",
   "author": "Smart Cloud Solutions Inc.",
   "license": "MIT",
@@ -29,14 +29,15 @@
     "@wordpress/data": "^10.36.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/node": "^25.0.2",
-    "@typescript-eslint/eslint-plugin": "^8.49.0",
-    "@typescript-eslint/parser": "^8.49.0",
+    "@typescript-eslint/eslint-plugin": "^8.50.0",
+    "@typescript-eslint/parser": "^8.50.0",
     "@wordpress/data": "^10.36.0",
     "eslint": "^9.39.2",
-    "ts-node": "^10.9.2",
+    "globals": "^16.5.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.49.0"
+    "typescript-eslint": "^8.50.0"
   }
 }

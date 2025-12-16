@@ -1,10 +1,13 @@
 {
   "compilerOptions": {
-    "composite": true,
-    "skipLibCheck": true,
+    "target": "es2024",
+    "module": "esnext",
     "moduleResolution": "bundler",
+    "composite": true,
+    "lib": ["ES2024"],
     "allowSyntheticDefaultImports": true,
-    "strict": true
+    "types": ["node"]
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts"],
+  "exclude": ["src/**", "dist/**", "node_modules/**"]
 }

@@ -8,12 +8,18 @@ module.exports = function () {
     ...defaultConfig,
     externals: {
       ...defaultConfig.externals,
-      "crypto": "WpSuiteWebcrypto",
+      "@aws-amplify/ui": "WpSuiteAmplify",
+      "@aws-amplify/ui-react": "WpSuiteAmplify",
+      "@aws-amplify/ui-react-core": "WpSuiteAmplify",
+      "country-data-list": "WpSuiteAmplify",
+      crypto: "WpSuiteWebcrypto",
     },
     plugins: [
-      ...defaultConfig.plugins.filter(
-        (plugin) => plugin.constructor.name !== "RtlCssPlugin"
-      ),
+      ...(defaultConfig.plugins
+        ? defaultConfig.plugins.filter(
+          (plugin) => plugin?.constructor.name !== "RtlCssPlugin"
+        )
+        : []),
       new webpack.EnvironmentPlugin({
         WPSUITE_PREMIUM: false,
       }),
@@ -21,4 +27,4 @@ module.exports = function () {
   };
 
   return config;
-};
+}

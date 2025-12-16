@@ -21,8 +21,8 @@ if (file_exists(filename: WPSUITE_PATH . 'model.php')) {
     require_once WPSUITE_PATH . 'model.php';
 }
 
-const VERSION_WEBCRYPTO = '1.0.0';
-const VERSION_AMPLIFY = '1.0.0';
+const VERSION_WEBCRYPTO = '1.0.1';
+const VERSION_AMPLIFY = '1.0.1';
 
 class HubAdmin
 {
