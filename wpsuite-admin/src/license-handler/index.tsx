@@ -1,5 +1,5 @@
 import "@aws-amplify/ui-react/styles.css";
-import { Skeleton } from "@mantine/core";
+import { Group, Skeleton } from "@mantine/core";
 import {
   useEffect,
   type Dispatch,
@@ -10,7 +10,7 @@ import {
 import { Settings } from "./settings";
 
 export interface LicenseHandlerProps extends PropsWithChildren {
-  amplifyConfigured: boolean;
+  amplifyConfigured: boolean | undefined;
   apiUrl: string;
   stripePublicKey: string;
   pricingTable: string;
@@ -40,7 +40,16 @@ export const LicenseHandler: FunctionComponent<LicenseHandlerProps> = (
       width="100%"
       mt="md"
     >
-      <Settings {...props} />
+      {props.amplifyConfigured === undefined ? (
+        <Group
+          justify="space-between"
+          align="stretch"
+          w="100%"
+          h="150px"
+        ></Group>
+      ) : (
+        <Settings {...props} />
+      )}
     </Skeleton>
   );
 };

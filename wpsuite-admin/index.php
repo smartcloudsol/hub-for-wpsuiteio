@@ -48,44 +48,49 @@ class HubAdmin
         }
         $this->registerRestRoutes();
     }
-    public function getSiteSettings(): SiteSettings
+
+    public function init(): void
     {
-        return $this->siteSettings;
+        // Front‑end assets + shortcodes
+        add_action('wp_enqueue_scripts', array($this, 'enqueueScripts', ), 10);
+        add_action('admin_init', array($this, 'enqueueScripts'), 10);
+        add_action('elementor/preview/after_enqueue_scripts', array($this, 'enqueueScripts'), 10);
+
     }
 
-    function addMenu()
+    /**
+     * Enqueue inline scripts that expose PHP constants to JS.
+     */
+    public function enqueueScripts(): void
     {
-        $icon_url = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjxzdmcgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2ZXJzaW9uPSIxLjAiIHdpZHRoPSIyMHB4IiBoZWlnaHQ9IjIwcHgiIHZpZXdCb3g9IjAgMCAyNzguMDAwMDAwIDI1NC4wMDAwMDAiIHByZXNlcnZlQXNwZWN0UmF0aW89InhNaWRZTWlkIG1lZXQiPgogIDxkZWZzPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJncmVlbiIgZ3JhZGllbnRUcmFuc2Zvcm09InJvdGF0ZSg0NSkiPgogICAgICA8c3RvcCBvZmZzZXQ9IjUwJSIgc3RvcC1jb2xvcj0iIzJBQ0Q0RSI+PC9zdG9wPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM0RUZGQUEiPjwvc3RvcD4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDxzdHlsZSB0eXBlPSJ0ZXh0L2NzcyI+CgkJLnBhdGh7ZmlsbDp1cmwoJyNncmVlbicpO30KCTwvc3R5bGU+CiAgPGcgY2xhc3M9InBhdGgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAuMDAwMDAwLDI1NC4wMDAwMDApIHNjYWxlKDAuMTAwMDAwLC0wLjEwMDAwMCkiIGZpbGw9IiMwMDAwMDAiIHN0cm9rZT0ibm9uZSI+CiAgICA8cGF0aCBkPSJNNDk1IDI1MDQgYy0xODQgLTY1IC0zMzEgLTE4NyAtNDA0IC0zMzUgLTUyIC0xMDUgLTcyIC0yMDMgLTczIC0zNDQgIDAgLTg4IDQgLTEyMyAyMiAtMTc1IDQxIC0xMjIgODkgLTIwMCAxODAgLTI5MSA3MSAtNzIgMTAxIC05NCAxODQgLTEzNSBsOTggIC00OSAxNTIgLTYgYzgzIC00IDQ1OSAtMTEgODM2IC0xNCA2NDMgLTcgNjg5IC05IDc0NSAtMjcgNzkgLTI2IDEzMyAtNTkgMTg4ICAtMTE0IDU4IC02MCA5NCAtMTMxIDExNSAtMjMyIDE5IC05MSAxMCAtMTcyIC0yOSAtMjc2IC00MCAtMTEwIC0xNjkgLTIxNyAgLTMwMyAtMjUyIC00MSAtMTEgLTIxNCAtMTQgLTg5NyAtMTQgbC04NDYgMCAtNjEgMzEgYy05MCA0NCAtMTQwIDExNCAtMTU3ICAyMTUgLTUgMzEgLTIgNDUgMTIgNjIgbDE4IDIxIDkxOSA3IDkxOSA3IDM5IDM1IGMyMSAxOSA0MSA0NSA0NCA1NyA3IDI3IC0xNCAgNzEgLTQ4IDEwMSAtMjMgMjEgLTMxIDIyIC01NDkgMjcgLTI5MCAzIC03NjUgMyAtMTA1OCAwIGwtNTMxIC02IDAgLTE1NyBjMCAgLTE4OSA5IC0yNDIgNTcgLTM0MCA2NCAtMTMyIDE4MyAtMjMwIDMzMiAtMjc0IDQ4IC0xNCAxNTIgLTE2IDkxNSAtMTYgOTY0IDAgIDkzOCAtMSAxMDg0IDcxIDY1IDMyIDEwMiA1OSAxNjUgMTIyIDE0NyAxNDcgMTk3IDI2MyAyMDUgNDc0IDQgMTE3IDIgMTM5IC0xOCAgMjAwIC04NCAyNTQgLTI1MiA0MTYgLTUwMCA0ODIgLTcwIDE4IC0xMjMgMjAgLTczMCAyNiAtMzYwIDQgLTcyNSAxMCAtODEwIDE0ICAtMTQ5IDYgLTE1OSA4IC0yMjEgMzggLTE0OSA3NCAtMjQ5IDIzNyAtMjQ5IDQwNiAwIDE4NSA5MSAzMzYgMjQ4IDQxMyA1NCAyNiAgNjcgMjggMjUyIDM1IDEwNyA0IDUwNiA4IDg4NSA4IGw2OTAgMSA2MCAtMjkgYzcxIC0zNCAxMTYgLTc5IDE0NCAtMTQxIDMwICAtNjkgMzQgLTExMSAxNCAtMTM3IGwtMTggLTIyIC05MTUgLTcgYy0xMDE3IC03IC05NTcgLTMgLTk5MCAtNzYgLTIxIC00OCAtMTMgIC04OSAyNSAtMTI4IGwyNSAtMjUgMTA0NCAwIGM1NzUgMCAxMDQ4IDQgMTA1MyA4IDQgNSA5IDg4IDExIDE4NSA0IDE3MSAzIDE3OSAgLTIyIDI0NyAtMzUgOTAgLTc0IDE1MSAtMTM5IDIxMiAtNjQgNjAgLTEyMiA5NSAtMjA2IDEyMiAtNjMgMjEgLTc5IDIxIC05NTAgIDIxIGwtODg2IC0xIC03MCAtMjV6Ij48L3BhdGg+CiAgPC9nPgo8L3N2Zz4K';
-        add_menu_page(
-            __('WPSuite.io', 'wpsuite'),
-            __('WPSuite.io', 'wpsuite'),
-            'manage_options',
-            WPSUITE_SLUG,
-            null,
-            $icon_url,
-            58,
+        $upload_info = wp_upload_dir();
+        $data = array(
+            'restUrl' => rest_url(WPSUITE_SLUG . '/v1'),
+            'uploadUrl' => trailingslashit($upload_info['baseurl']) . WPSUITE_SLUG . '/',
+            'nonce' => wp_create_nonce('wp_rest'),
+            'siteSettings' => array(
+                'accountId' => $this->siteSettings->accountId,
+                'siteId' => $this->siteSettings->siteId,
+                'siteKey' => is_admin() ? $this->siteSettings->siteKey : '',
+                'lastUpdate' => $this->siteSettings->lastUpdate,
+                'subscriber' => $this->siteSettings->subscriber,
+                'hubInstalled' => true,
+            ),
         );
+        $js = 'const WpSuite = ' . wp_json_encode($data) . ';';
 
-        $connect_suffix = add_submenu_page(
-            WPSUITE_SLUG,
-            __('Connect your Site', 'wpsuite'),
-            __('Connect your Site', 'wpsuite'),
-            'manage_options',
-            WPSUITE_SLUG,
-            array($this, 'renderAdminPage'),
-        );
+        wp_enqueue_script('wpsuite-main-script', WPSUITE_URL . 'hub-for-wpsuiteio.js', false, WPSUITE_VERSION, false);
 
-        /*
-        $diagnostics_suffix = add_submenu_page(
-            WPSUITE_SLUG,
-            __('Diagnostics', 'wpsuite'),
-            __('Diagnostics', 'wpsuite'),
-            'manage_options',
-            WPSUITE_SLUG . '-diagnostics',
-            array($this, 'renderAdminPage'),
-        );
-        */
+        wp_add_inline_script('wpsuite-main-script', $js, 'before');
+    }
 
+    public function getIconUrl()
+    {
+        return 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjxzdmcgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2ZXJzaW9uPSIxLjAiIHdpZHRoPSIyMHB4IiBoZWlnaHQ9IjIwcHgiIHZpZXdCb3g9IjAgMCAyNzguMDAwMDAwIDI1NC4wMDAwMDAiIHByZXNlcnZlQXNwZWN0UmF0aW89InhNaWRZTWlkIG1lZXQiPgogIDxkZWZzPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJncmVlbiIgZ3JhZGllbnRUcmFuc2Zvcm09InJvdGF0ZSg0NSkiPgogICAgICA8c3RvcCBvZmZzZXQ9IjUwJSIgc3RvcC1jb2xvcj0iIzJBQ0Q0RSI+PC9zdG9wPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM0RUZGQUEiPjwvc3RvcD4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDxzdHlsZSB0eXBlPSJ0ZXh0L2NzcyI+CgkJLnBhdGh7ZmlsbDp1cmwoJyNncmVlbicpO30KCTwvc3R5bGU+CiAgPGcgY2xhc3M9InBhdGgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAuMDAwMDAwLDI1NC4wMDAwMDApIHNjYWxlKDAuMTAwMDAwLC0wLjEwMDAwMCkiIGZpbGw9IiMwMDAwMDAiIHN0cm9rZT0ibm9uZSI+CiAgICA8cGF0aCBkPSJNNDk1IDI1MDQgYy0xODQgLTY1IC0zMzEgLTE4NyAtNDA0IC0zMzUgLTUyIC0xMDUgLTcyIC0yMDMgLTczIC0zNDQgIDAgLTg4IDQgLTEyMyAyMiAtMTc1IDQxIC0xMjIgODkgLTIwMCAxODAgLTI5MSA3MSAtNzIgMTAxIC05NCAxODQgLTEzNSBsOTggIC00OSAxNTIgLTYgYzgzIC00IDQ1OSAtMTEgODM2IC0xNCA2NDMgLTcgNjg5IC05IDc0NSAtMjcgNzkgLTI2IDEzMyAtNTkgMTg4ICAtMTE0IDU4IC02MCA5NCAtMTMxIDExNSAtMjMyIDE5IC05MSAxMCAtMTcyIC0yOSAtMjc2IC00MCAtMTEwIC0xNjkgLTIxNyAgLTMwMyAtMjUyIC00MSAtMTEgLTIxNCAtMTQgLTg5NyAtMTQgbC04NDYgMCAtNjEgMzEgYy05MCA0NCAtMTQwIDExNCAtMTU3ICAyMTUgLTUgMzEgLTIgNDUgMTIgNjIgbDE4IDIxIDkxOSA3IDkxOSA3IDM5IDM1IGMyMSAxOSA0MSA0NSA0NCA1NyA3IDI3IC0xNCAgNzEgLTQ4IDEwMSAtMjMgMjEgLTMxIDIyIC01NDkgMjcgLTI5MCAzIC03NjUgMyAtMTA1OCAwIGwtNTMxIC02IDAgLTE1NyBjMCAgLTE4OSA5IC0yNDIgNTcgLTM0MCA2NCAtMTMyIDE4MyAtMjMwIDMzMiAtMjc0IDQ4IC0xNCAxNTIgLTE2IDkxNSAtMTYgOTY0IDAgIDkzOCAtMSAxMDg0IDcxIDY1IDMyIDEwMiA1OSAxNjUgMTIyIDE0NyAxNDcgMTk3IDI2MyAyMDUgNDc0IDQgMTE3IDIgMTM5IC0xOCAgMjAwIC04NCAyNTQgLTI1MiA0MTYgLTUwMCA0ODIgLTcwIDE4IC0xMjMgMjAgLTczMCAyNiAtMzYwIDQgLTcyNSAxMCAtODEwIDE0ICAtMTQ5IDYgLTE1OSA4IC0yMjEgMzggLTE0OSA3NCAtMjQ5IDIzNyAtMjQ5IDQwNiAwIDE4NSA5MSAzMzYgMjQ4IDQxMyA1NCAyNiAgNjcgMjggMjUyIDM1IDEwNyA0IDUwNiA4IDg4NSA4IGw2OTAgMSA2MCAtMjkgYzcxIC0zNCAxMTYgLTc5IDE0NCAtMTQxIDMwICAtNjkgMzQgLTExMSAxNCAtMTM3IGwtMTggLTIyIC05MTUgLTcgYy0xMDE3IC03IC05NTcgLTMgLTk5MCAtNzYgLTIxIC00OCAtMTMgIC04OSAyNSAtMTI4IGwyNSAtMjUgMTA0NCAwIGM1NzUgMCAxMDQ4IDQgMTA1MyA4IDQgNSA5IDg4IDExIDE4NSA0IDE3MSAzIDE3OSAgLTIyIDI0NyAtMzUgOTAgLTc0IDE1MSAtMTM5IDIxMiAtNjQgNjAgLTEyMiA5NSAtMjA2IDEyMiAtNjMgMjEgLTc5IDIxIC05NTAgIDIxIGwtODg2IC0xIC03MCAtMjV6Ij48L3BhdGg+CiAgPC9nPgo8L3N2Zz4K';
+    }
+
+    public function enqueueAdminScripts($connect_suffix/*, $diagnostics_suffix*/)
+    {
         $GLOBALS['wpsuitehub_menu_parent'] = WPSUITE_SLUG;
         do_action(WPSUITE_READY_HOOK, WPSUITE_SLUG);
 
@@ -132,21 +137,62 @@ class HubAdmin
         });
     }
 
-    function renderAdminPage()
+    /**
+     * Check configuration and license.
+     */
+    public function check(): void
+    {
+        if ($this->siteSettings->subscriber) {
+            // If the site is a subscriber, we need to check if the configuration and the license exist.
+
+            $lock_key = WPSUITE_SLUG . '/license-refresh-lock';
+            $time_key = WPSUITE_SLUG . '/license-last-refresh';
+
+            /* ---- 1.  handling race-conditions (5-minute lock) ---- */
+            if (get_transient($lock_key)) {
+                return;
+            }
+            set_transient($lock_key, 1, 5 * MINUTE_IN_SECONDS);
+
+            /* ---- 2.  do we need to refresh? ---- */
+            $need_refresh = false;
+
+            $upload_dir_info = wp_upload_dir();
+            $base_dir = trailingslashit($upload_dir_info['basedir']);
+            $plugin_subdir = trailingslashit($base_dir . WPSUITE_SLUG);
+            $config_path = $plugin_subdir . 'config.enc';
+            $jws_path = $plugin_subdir . 'lic.jws';
+            $exists = file_exists($config_path) && file_exists($jws_path);
+
+            if (!$exists) {
+                $need_refresh = true;
+            }
+
+            // 2/b) was the last successful refresh more than a week ago?
+            $last = (int) get_option($time_key, 0);
+            if (time() - $last >= WEEK_IN_SECONDS) {
+                $need_refresh = true;
+            }
+
+            /* ---- 3.  refresh if we need to ---- */
+            if ($need_refresh) {
+                $this->reloadConfig(
+                    $this->siteSettings->accountId,
+                    $this->siteSettings->siteId,
+                    $this->siteSettings->siteKey
+                );
+            }
+            /* ---- 4.  unlock ---- */
+            delete_transient($lock_key);
+        }
+    }
+
+    public function renderAdminPage()
     {
         echo '<div id="wpsuite-admin"></div>';
     }
 
-    function registerRestRoutes()
-    {
-        if (!class_exists('WP_REST_Controller')) {
-            return;
-        }
-
-        add_action('rest_api_init', array($this, 'initRestApi'));
-    }
-
-    function initRestApi()
+    public function initRestApi()
     {
         /*
         register_rest_route(
@@ -286,7 +332,7 @@ class HubAdmin
         return new \WP_REST_Response($payload, 200);
     }
 
-    function updateSiteSettings(WP_REST_Request $request)
+    public function updateSiteSettings(WP_REST_Request $request)
     {
         $settings_param = json_decode($request->get_body());
 
@@ -324,7 +370,16 @@ class HubAdmin
         return new WP_REST_Response(array('success' => true, 'message' => 'Site settings updated successfully.'), 200);
     }
 
-    function reloadConfig($accountId, $siteId, $siteKey)
+    private function registerRestRoutes()
+    {
+        if (!class_exists('WP_REST_Controller')) {
+            return;
+        }
+
+        add_action('rest_api_init', array($this, 'initRestApi'));
+    }
+
+    private function reloadConfig($accountId, $siteId, $siteKey)
     {
         $api_base = 'https://api.wpsuite.io';
 
@@ -375,7 +430,7 @@ class HubAdmin
         }
     }
 
-    function deleteConfig()
+    private function deleteConfig()
     {
         $upload_dir_info = wp_upload_dir();
         $base_dir = trailingslashit($upload_dir_info['basedir']);

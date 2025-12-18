@@ -191,49 +191,47 @@ const Main = (props: MainProps) => {
   }, [checkAccount]);
 
   return (
-    amplifyConfigured !== undefined && (
-      <Authenticator.Provider>
-        <div className={classes["wpc-container"]}>
-          <Stack mb="md" gap={4}>
-            <Heading
-              level={1}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                color: "#218BE6",
-              }}
-            >
-              {__(
-                isMobile
-                  ? "WPSuite.io HUB"
-                  : "Central Hub for WPSuite.io Plugins",
-                TEXT_DOMAIN
-              )}
-            </Heading>
-            <Text>
-              Link this WordPress installation to your WP Suite workspace to
-              enable licensing and shared features. You can disconnect or switch
-              workspaces at any time without affecting your content.
-            </Text>
-          </Stack>{" "}
-          <LicenseHandler
-            apiUrl={apiUrl}
-            amplifyConfigured={amplifyConfigured}
-            nonce={nonce}
-            stripePublicKey={configuration?.stripePublicKey}
-            pricingTable={configuration?.pricingTable}
-            accountId={accountId}
-            ownAccountId={ownAccountId ?? accountId}
-            siteId={siteId}
-            siteKey={siteKey}
-            setAccountId={setAccountId}
-            setSiteId={setSiteId}
-            setSiteKey={setSiteKey}
-          />
-        </div>
-      </Authenticator.Provider>
-    )
+    <Authenticator.Provider>
+      <div className={classes["wpc-container"]}>
+        <Stack mb="md" gap={4}>
+          <Heading
+            level={1}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              color: "#218BE6",
+            }}
+          >
+            {__(
+              isMobile
+                ? "WPSuite.io HUB"
+                : "Central Hub for WPSuite.io Plugins",
+              TEXT_DOMAIN
+            )}
+          </Heading>
+          <Text>
+            Link this WordPress installation to your WP Suite workspace to
+            enable licensing and shared features. You can disconnect or switch
+            workspaces at any time without affecting your content.
+          </Text>
+        </Stack>{" "}
+        <LicenseHandler
+          apiUrl={apiUrl}
+          amplifyConfigured={amplifyConfigured}
+          nonce={nonce}
+          stripePublicKey={configuration?.stripePublicKey}
+          pricingTable={configuration?.pricingTable}
+          accountId={accountId}
+          ownAccountId={ownAccountId ?? accountId}
+          siteId={siteId}
+          siteKey={siteKey}
+          setAccountId={setAccountId}
+          setSiteId={setSiteId}
+          setSiteKey={setSiteKey}
+        />
+      </div>
+    </Authenticator.Provider>
   );
 };
 
