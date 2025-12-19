@@ -8,10 +8,6 @@ module.exports = function () {
     ...defaultConfig,
     externals: {
       ...defaultConfig.externals,
-      "@aws-amplify/ui": "WpSuiteAmplify",
-      "@aws-amplify/ui-react": "WpSuiteAmplify",
-      "@aws-amplify/ui-react-core": "WpSuiteAmplify",
-      "country-data-list": "WpSuiteAmplify",
       crypto: "WpSuiteWebcrypto",
     },
     plugins: [

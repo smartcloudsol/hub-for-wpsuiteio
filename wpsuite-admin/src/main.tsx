@@ -1,5 +1,4 @@
 import { fetchAuthSession } from "@aws-amplify/auth";
-import { Authenticator } from "@aws-amplify/ui-react";
 import { useQuery } from "@tanstack/react-query";
 import { Amplify } from "aws-amplify";
 import { Hub } from "aws-amplify/utils";
@@ -11,7 +10,7 @@ import { __ } from "@wordpress/i18n";
 import { DEFAULT_THEME, Stack, Text } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 
-import { TEXT_DOMAIN } from "@smart-cloud/wpsuite-core";
+import { getWpSuite, TEXT_DOMAIN } from "@smart-cloud/wpsuite-core";
 
 import { LicenseHandler } from "./license-handler";
 
@@ -20,7 +19,7 @@ import "jquery";
 import classes from "./main.module.css";
 
 interface MainProps {
-  nonce: string;
+  nonce?: string;
 }
 
 const production = process.env?.NODE_ENV === "production";
@@ -35,6 +34,8 @@ const configUrl =
     ? "https://wpsuite.io/static/config/dev.json"
     : "https://wpsuite.io/static/config/prod.json";
 
+const wpsuite = getWpSuite();
+
 const Main = (props: MainProps) => {
   const { nonce } = props;
 
@@ -43,13 +44,13 @@ const Main = (props: MainProps) => {
   >();
   const [ownAccountId, setOwnAccountId] = useState<string>();
   const [accountId, setAccountId] = useState<string | undefined>(
-    WpSuite.siteSettings.accountId
+    wpsuite!.siteSettings.accountId
   );
   const [siteId, setSiteId] = useState<string | undefined>(
-    WpSuite.siteSettings.siteId
+    wpsuite!.siteSettings.siteId
   );
   const [siteKey, setSiteKey] = useState<string | undefined>(
-    WpSuite.siteSettings.siteKey
+    wpsuite!.siteSettings.siteKey
   );
 
   const isMobile = useMediaQuery(
@@ -191,47 +192,43 @@ const Main = (props: MainProps) => {
   }, [checkAccount]);
 
   return (
-    <Authenticator.Provider>
-      <div className={classes["wpc-container"]}>
-        <Stack mb="md" gap={4}>
-          <Heading
-            level={1}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              color: "#218BE6",
-            }}
-          >
-            {__(
-              isMobile
-                ? "WPSuite.io HUB"
-                : "Central Hub for WPSuite.io Plugins",
-              TEXT_DOMAIN
-            )}
-          </Heading>
-          <Text>
-            Link this WordPress installation to your WP Suite workspace to
-            enable licensing and shared features. You can disconnect or switch
-            workspaces at any time without affecting your content.
-          </Text>
-        </Stack>{" "}
-        <LicenseHandler
-          apiUrl={apiUrl}
-          amplifyConfigured={amplifyConfigured}
-          nonce={nonce}
-          stripePublicKey={configuration?.stripePublicKey}
-          pricingTable={configuration?.pricingTable}
-          accountId={accountId}
-          ownAccountId={ownAccountId ?? accountId}
-          siteId={siteId}
-          siteKey={siteKey}
-          setAccountId={setAccountId}
-          setSiteId={setSiteId}
-          setSiteKey={setSiteKey}
-        />
-      </div>
-    </Authenticator.Provider>
+    <div className={classes["wpc-container"]}>
+      <Stack mb="md" gap={4}>
+        <Heading
+          level={1}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            color: "#218BE6",
+          }}
+        >
+          {__(
+            isMobile ? "WPSuite.io HUB" : "Central Hub for WPSuite.io Plugins",
+            TEXT_DOMAIN
+          )}
+        </Heading>
+        <Text>
+          Link this WordPress installation to your WP Suite workspace to enable
+          licensing and shared features. You can disconnect or switch workspaces
+          at any time without affecting your content.
+        </Text>
+      </Stack>{" "}
+      <LicenseHandler
+        apiUrl={apiUrl}
+        amplifyConfigured={amplifyConfigured}
+        nonce={nonce}
+        stripePublicKey={configuration?.stripePublicKey}
+        pricingTable={configuration?.pricingTable}
+        accountId={accountId}
+        ownAccountId={ownAccountId ?? accountId}
+        siteId={siteId}
+        siteKey={siteKey}
+        setAccountId={setAccountId}
+        setSiteId={setSiteId}
+        setSiteKey={setSiteKey}
+      />
+    </div>
   );
 };
 

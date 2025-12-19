@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
+import { getWpSuite } from "@smart-cloud/wpsuite-core";
 
 const production = process.env?.NODE_ENV === "production";
 if (!production) {
@@ -27,7 +28,8 @@ const queryClient = new QueryClient({
   },
 });
 
-const view = WpSuite?.view ?? "connect";
+const wpsuite = getWpSuite();
+const view = wpsuite?.view ?? "connect";
 const root = createRoot(document.getElementById("wpsuite-admin")!);
 if (view === "diagnostics") {
   const Diagnostics = await import("./diagnostics");
@@ -51,7 +53,7 @@ if (view === "diagnostics") {
         <MantineProvider theme={theme}>
           <Notifications position="top-right" zIndex={100002} />
           <ModalsProvider modalProps={{ zIndex: 100001 }}>
-            <Main.default {...WpSuite} />
+            <Main.default {...wpsuite} />
           </ModalsProvider>
         </MantineProvider>
       </QueryClientProvider>

@@ -77,7 +77,17 @@ class HubAdmin
                 'hubInstalled' => true,
             ),
         );
-        $js = 'const WpSuite = ' . wp_json_encode($data) . ';';
+        $js = 'const __wpsuiteGlobal = (typeof globalThis !== "undefined") ? globalThis : window;
+__wpsuiteGlobal.WpSuite = __wpsuiteGlobal.WpSuite ?? {};
+__wpsuiteGlobal.WpSuite.plugins = __wpsuiteGlobal.WpSuite.plugins ?? {};
+__wpsuiteGlobal.WpSuite.events = __wpsuiteGlobal.WpSuite.events ?? {
+  emit: (type, detail) => window.dispatchEvent(new CustomEvent(type, { detail })),
+  on: (type, cb, opts) => window.addEventListener(type, cb, opts),
+};
+Object.assign(__wpsuiteGlobal.WpSuite, ' . wp_json_encode($data) . ');
+// backward compatibility
+var WpSuite = __wpsuiteGlobal.WpSuite;
+';
 
         wp_enqueue_script('wpsuite-main-script', WPSUITE_URL . 'hub-for-wpsuiteio.js', false, WPSUITE_VERSION, false);
 
@@ -108,19 +118,11 @@ class HubAdmin
                 false
             );
 
-            wp_register_script(
-                'wpsuite-amplify-vendor',
-                plugins_url('assets/js/wpsuite-amplify-vendor.min.js', __FILE__),
-                array("react", "react-dom"),
-                VERSION_AMPLIFY,
-                false
-            );
-
             $script_asset = array();
             if (file_exists(WPSUITE_PATH . 'dist/index.asset.php')) {
                 $script_asset = require_once(WPSUITE_PATH . 'dist/index.asset.php');
             }
-            $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('wpsuite-webcrypto-vendor', 'wpsuite-amplify-vendor'));
+            $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('wpsuite-webcrypto-vendor'));
             wp_enqueue_script('wpsuite-admin-script', WPSUITE_URL . 'dist/index.js', $script_asset['dependencies'], WPSUITE_VERSION, true);
 
             if ($hook === $connect_suffix) {
@@ -130,7 +132,7 @@ class HubAdmin
             } else {
                 $page = '';
             }
-            $js = 'WpSuite.view = ' . wp_json_encode($page) . ';';
+            $js = '__wpsuiteGlobal.WpSuite.view = ' . wp_json_encode($page) . ';';
             wp_add_inline_script('wpsuite-admin-script', $js, 'before');
 
             wp_enqueue_style('wpsuite-admin-style', WPSUITE_URL . 'dist/index.css', array('wp-components'), WPSUITE_VERSION);

@@ -1,3 +1,4 @@
+import { Authenticator } from "@aws-amplify/ui-react";
 import "@aws-amplify/ui-react/styles.css";
 import { Group, Skeleton } from "@mantine/core";
 import {
@@ -18,7 +19,7 @@ export interface LicenseHandlerProps extends PropsWithChildren {
   accountId?: string;
   siteId?: string;
   siteKey?: string;
-  nonce: string;
+  nonce?: string;
   setAccountId: Dispatch<SetStateAction<string | undefined>>;
   setSiteId: Dispatch<SetStateAction<string | undefined>>;
   setSiteKey: Dispatch<SetStateAction<string | undefined>>;
@@ -48,7 +49,9 @@ export const LicenseHandler: FunctionComponent<LicenseHandlerProps> = (
           h="150px"
         ></Group>
       ) : (
-        <Settings {...props} />
+        <Authenticator.Provider>
+          <Settings {...props} />
+        </Authenticator.Provider>
       )}
     </Skeleton>
   );

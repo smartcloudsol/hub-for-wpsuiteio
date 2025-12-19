@@ -45,6 +45,7 @@ import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import {
   getConfig,
+  getWpSuite,
   TEXT_DOMAIN,
   type SiteSettings,
   type SubscriptionType,
@@ -140,10 +141,12 @@ export interface SettingsProps extends LicenseHandlerProps {
   apiUrl: string;
   stripePublicKey: string;
   pricingTable: string;
-  nonce: string;
+  nonce?: string;
 }
 
 const PAGE_SIZE = 3;
+
+const wpsuite = getWpSuite();
 
 export const Settings: FunctionComponent<SettingsProps> = (
   props: SettingsProps
@@ -445,11 +448,11 @@ export const Settings: FunctionComponent<SettingsProps> = (
       const subscriber = siteSettings
         ? siteSettings.subscriber
         : !!subscriptionType;
-      return fetch(WpSuite.restUrl + "/update-site-settings", {
+      return fetch(wpsuite!.restUrl + "/update-site-settings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-WP-Nonce": nonce,
+          "X-WP-Nonce": nonce!,
         },
         body: JSON.stringify({
           accountId: siteSettings ? siteSettings.accountId : accountId,
@@ -1592,7 +1595,6 @@ function SiteSelector({
   );
 
   if (totalPages > 0 && activePage > totalPages) {
-    console.log("Adjusting active page from", activePage, "to", totalPages);
     setActivePage(totalPages);
   }
 

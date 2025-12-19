@@ -16,7 +16,7 @@ import { IconRefresh } from "@tabler/icons-react";
 import { __experimentalHeading as Heading } from "@wordpress/components";
 import { __ } from "@wordpress/i18n";
 
-import { TEXT_DOMAIN } from "@smart-cloud/wpsuite-core";
+import { getWpSuite, TEXT_DOMAIN } from "@smart-cloud/wpsuite-core";
 
 type Versions = {
   current: string;
@@ -46,6 +46,8 @@ type Diagnostics = {
   timestamp: number;
 };
 
+const wpsuite = getWpSuite();
+
 export default function DiagnosticsScreen() {
   const [data, setData] = useState<Diagnostics | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -59,8 +61,8 @@ export default function DiagnosticsScreen() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${WpSuite.restUrl}/diagnostics`, {
-        headers: { "X-WP-Nonce": WpSuite.nonce },
+      const res = await fetch(`${wpsuite!.restUrl}/diagnostics`, {
+        headers: { "X-WP-Nonce": wpsuite!.nonce },
         credentials: "same-origin",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
