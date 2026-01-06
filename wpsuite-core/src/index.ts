@@ -61,6 +61,7 @@ export function getPlugin<K extends string>(
   return globalThis.WpSuite?.plugins[key];
 }
 
+export { getRecaptcha, type RecaptchaFunction } from "./utils";
 export { attachDefaultPluginRuntime } from "./runtime";
 
 export const TEXT_DOMAIN = "hub-for-wpsuiteio";

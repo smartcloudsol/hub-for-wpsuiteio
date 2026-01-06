@@ -56,3 +56,41 @@ export const decryptData = async (
     return undefined;
   }
 };
+
+export type RecaptchaFunction = (
+  reCaptchaSiteKey: string,
+  options: { action: string }
+) => Promise<string | undefined>;
+
+export const getRecaptcha = async (
+  useRecaptchaEnterprise: boolean
+): Promise<{ execute: RecaptchaFunction | undefined }> => {
+  // Support both Enterprise and standard grecaptcha.
+  type GrecaptchaLike = {
+    ready?: (cb: () => void) => void;
+    execute?: (siteKey: string, opts: { action: string }) => Promise<string>;
+    enterprise?: {
+      ready?: (cb: () => void) => void;
+      execute?: (siteKey: string, opts: { action: string }) => Promise<string>;
+    };
+  };
+
+  const grecaptcha = (globalThis as unknown as { grecaptcha?: GrecaptchaLike })
+    .grecaptcha;
+  const enterprise = useRecaptchaEnterprise
+    ? grecaptcha?.enterprise
+    : undefined;
+  const ready = enterprise?.ready ?? grecaptcha?.ready;
+  const execute = enterprise?.execute ?? grecaptcha?.execute;
+
+  if (typeof execute !== "function") return { execute: undefined };
+
+  try {
+    if (typeof ready === "function") {
+      await new Promise<void>((resolve) => ready(() => resolve()));
+    }
+    return { execute };
+  } catch {
+    return { execute: undefined };
+  }
+};

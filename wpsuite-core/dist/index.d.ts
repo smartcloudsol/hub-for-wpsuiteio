@@ -1,3 +1,10 @@
+type RecaptchaFunction = (reCaptchaSiteKey: string, options: {
+    action: string;
+}) => Promise<string | undefined>;
+declare const getRecaptcha: (useRecaptchaEnterprise: boolean) => Promise<{
+    execute: RecaptchaFunction | undefined;
+}>;
+
 /** Attaches the default runtime functions to a plugin object */
 declare function attachDefaultPluginRuntime<T extends WpSuitePluginBase>(plugin: T, opts?: {
     timeoutMs?: number;
@@ -49,4 +56,4 @@ interface SiteSettings {
 type SubscriptionType = "PROFESSIONAL" | "AGENCY";
 declare const getConfig: (plugin: string) => Promise<Record<string, unknown> | null>;
 
-export { type PluginAvailability, type PluginStatus, type SiteSettings, type SubscriptionType, TEXT_DOMAIN, type WpSuiteEvents, type WpSuiteGlobal, type WpSuitePluginBase, type WpSuitePluginRegistry, type WpSuiteView, attachDefaultPluginRuntime, getConfig, getPlugin, getWpSuite };
+export { type PluginAvailability, type PluginStatus, type RecaptchaFunction, type SiteSettings, type SubscriptionType, TEXT_DOMAIN, type WpSuiteEvents, type WpSuiteGlobal, type WpSuitePluginBase, type WpSuitePluginRegistry, type WpSuiteView, attachDefaultPluginRuntime, getConfig, getPlugin, getRecaptcha, getWpSuite };
