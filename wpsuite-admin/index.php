@@ -23,6 +23,7 @@ if (file_exists(filename: WPSUITE_PATH . 'model.php')) {
 
 const VERSION_WEBCRYPTO = '1.0.1';
 const VERSION_AMPLIFY = '1.0.1';
+const VERSION_MANTINE = '1.0.0';
 
 class HubAdmin
 {
@@ -118,11 +119,19 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 false
             );
 
+            wp_register_script(
+                'wpsuite-mantine-vendor',
+                plugins_url('assets/js/wpsuite-mantine-vendor.min.js', __FILE__),
+                array(),
+                VERSION_MANTINE,
+                false
+            );
+
             $script_asset = array();
             if (file_exists(WPSUITE_PATH . 'dist/index.asset.php')) {
                 $script_asset = require_once(WPSUITE_PATH . 'dist/index.asset.php');
             }
-            $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('wpsuite-webcrypto-vendor'));
+            $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('wpsuite-webcrypto-vendor', 'wpsuite-mantine-vendor'));
             wp_enqueue_script('wpsuite-admin-script', WPSUITE_URL . 'dist/index.js', $script_asset['dependencies'], WPSUITE_VERSION, true);
 
             if ($hook === $connect_suffix) {

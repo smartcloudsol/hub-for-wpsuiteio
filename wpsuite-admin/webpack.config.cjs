@@ -8,6 +8,11 @@ module.exports = function () {
     ...defaultConfig,
     externals: {
       ...defaultConfig.externals,
+      "@mantine/core": "WpSuiteMantine",
+      "@mantine/form": "WpSuiteMantine",
+      "@mantine/hooks": "WpSuiteMantine",
+      "@mantine/modals": "WpSuiteMantine",
+      "@mantine/notifications": "WpSuiteMantine",
       crypto: "WpSuiteWebcrypto",
     },
     plugins: [
