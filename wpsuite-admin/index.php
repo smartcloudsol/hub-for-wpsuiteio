@@ -23,7 +23,7 @@ if (file_exists(filename: WPSUITE_PATH . 'model.php')) {
 
 const VERSION_WEBCRYPTO = '1.0.1';
 const VERSION_AMPLIFY = '1.0.1';
-const VERSION_MANTINE = '1.0.0';
+const VERSION_MANTINE = '1.0.2';
 
 class HubAdmin
 {
@@ -144,7 +144,8 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             $js = '__wpsuiteGlobal.WpSuite.view = ' . wp_json_encode($page) . ';';
             wp_add_inline_script('wpsuite-admin-script', $js, 'before');
 
-            wp_enqueue_style('wpsuite-admin-style', WPSUITE_URL . 'dist/index.css', array('wp-components'), WPSUITE_VERSION);
+            wp_enqueue_style('wpsuite-admin-style', WPSUITE_URL . 'dist/index.css', array(), WPSUITE_VERSION);
+            wp_enqueue_style('wpsuite-mantine-vendor-style', WPSUITE_URL . '../assets/css/wpsuite-mantine-vendor.css', array(), VERSION_MANTINE);
         });
     }
 

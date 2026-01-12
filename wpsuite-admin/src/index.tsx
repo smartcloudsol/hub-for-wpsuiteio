@@ -5,9 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
-import "@mantine/core/styles.css";
-import "@mantine/notifications/styles.css";
 import { getWpSuite } from "@smart-cloud/wpsuite-core";
+
+import Main from "./main";
 
 const production = process.env?.NODE_ENV === "production";
 if (!production) {
@@ -46,14 +46,13 @@ if (view === "diagnostics") {
     </StrictMode>
   );
 } else {
-  const Main = await import("./main");
   root.render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <MantineProvider theme={theme}>
           <Notifications position="top-right" zIndex={100002} />
           <ModalsProvider modalProps={{ zIndex: 100001 }}>
-            <Main.default {...wpsuite} />
+            <Main {...wpsuite} />
           </ModalsProvider>
         </MantineProvider>
       </QueryClientProvider>
