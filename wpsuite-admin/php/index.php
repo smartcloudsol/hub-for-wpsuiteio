@@ -128,11 +128,11 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             );
 
             $script_asset = array();
-            if (file_exists(WPSUITE_PATH . 'dist/index.asset.php')) {
-                $script_asset = require_once(WPSUITE_PATH . 'dist/index.asset.php');
+            if (file_exists(WPSUITE_PATH . 'index.asset.php')) {
+                $script_asset = require_once(WPSUITE_PATH . 'index.asset.php');
             }
             $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('wpsuite-webcrypto-vendor', 'wpsuite-mantine-vendor'));
-            wp_enqueue_script('wpsuite-admin-script', WPSUITE_URL . 'dist/index.js', $script_asset['dependencies'], WPSUITE_VERSION, true);
+            wp_enqueue_script('wpsuite-admin-script', WPSUITE_URL . 'index.js', $script_asset['dependencies'], WPSUITE_VERSION, true);
 
             if ($hook === $connect_suffix) {
                 $page = 'connect';
@@ -144,7 +144,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             $js = '__wpsuiteGlobal.WpSuite.view = ' . wp_json_encode($page) . ';';
             wp_add_inline_script('wpsuite-admin-script', $js, 'before');
 
-            wp_enqueue_style('wpsuite-admin-style', WPSUITE_URL . 'dist/index.css', array(), WPSUITE_VERSION);
+            wp_enqueue_style('wpsuite-admin-style', WPSUITE_URL . 'index.css', array(), WPSUITE_VERSION);
             wp_enqueue_style('wpsuite-mantine-vendor-style', WPSUITE_URL . '../assets/css/wpsuite-mantine-vendor.css', array(), VERSION_MANTINE);
         });
     }
