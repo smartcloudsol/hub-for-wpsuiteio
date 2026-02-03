@@ -17,13 +17,13 @@ use WP_Filesystem_Direct;
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly.
 }
-if (file_exists(filename: WPSUITE_PATH . 'model.php')) {
-    require_once WPSUITE_PATH . 'model.php';
+if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'model.php')) {
+    require_once SMARTCLOUD_WPSUITE_PATH . 'model.php';
 }
 
-const VERSION_WEBCRYPTO = '1.0.1';
-const VERSION_AMPLIFY = '1.0.1';
-const VERSION_MANTINE = '1.0.2';
+const VERSION_WEBCRYPTO = '1.0.2';
+const VERSION_AMPLIFY = '1.1.0';
+const VERSION_MANTINE = '1.0.3';
 
 class HubAdmin
 {
@@ -38,7 +38,7 @@ class HubAdmin
             siteKey: '',
         );
         try {
-            $this->siteSettings = get_option(WPSUITE_SLUG . '/site-settings', $defaultSiteSettings);
+            $this->siteSettings = get_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings', $defaultSiteSettings);
             $this->siteSettings->accountId ??= '';
             $this->siteSettings->siteId ??= '';
             $this->siteSettings->lastUpdate ??= 0;
@@ -66,8 +66,8 @@ class HubAdmin
     {
         $upload_info = wp_upload_dir();
         $data = array(
-            'restUrl' => rest_url(WPSUITE_SLUG . '/v1'),
-            'uploadUrl' => trailingslashit($upload_info['baseurl']) . WPSUITE_SLUG . '/',
+            'restUrl' => rest_url(SMARTCLOUD_WPSUITE_SLUG . '/v1'),
+            'uploadUrl' => trailingslashit($upload_info['baseurl']) . SMARTCLOUD_WPSUITE_SLUG . '/',
             'nonce' => wp_create_nonce('wp_rest'),
             'siteSettings' => array(
                 'accountId' => $this->siteSettings->accountId,
@@ -90,9 +90,9 @@ Object.assign(__wpsuiteGlobal.WpSuite, ' . wp_json_encode($data) . ');
 var WpSuite = __wpsuiteGlobal.WpSuite;
 ';
 
-        wp_enqueue_script('wpsuite-main-script', WPSUITE_URL . 'hub-for-wpsuiteio.js', false, WPSUITE_VERSION, false);
+        wp_enqueue_script('smartcloud-wpsuite-main-script', SMARTCLOUD_WPSUITE_URL . 'wpsuiteio.js', false, SMARTCLOUD_WPSUITE_VERSION, false);
 
-        wp_add_inline_script('wpsuite-main-script', $js, 'before');
+        wp_add_inline_script('smartcloud-wpsuite-main-script', $js, 'before');
     }
 
     public function getIconUrl()
@@ -102,8 +102,8 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
 
     public function enqueueAdminScripts($connect_suffix/*, $diagnostics_suffix*/)
     {
-        $GLOBALS['wpsuitehub_menu_parent'] = WPSUITE_SLUG;
-        do_action(WPSUITE_READY_HOOK, WPSUITE_SLUG);
+        $GLOBALS['smartcloud_wpsuite_menu_parent'] = SMARTCLOUD_WPSUITE_SLUG;
+        do_action(SMARTCLOUD_WPSUITE_READY_HOOK, SMARTCLOUD_WPSUITE_SLUG);
 
         //add_action('admin_enqueue_scripts', function ($hook) use ($connect_suffix, $diagnostics_suffix) {
         add_action('admin_enqueue_scripts', function ($hook) use ($connect_suffix) {
@@ -112,7 +112,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             }
 
             wp_register_script(
-                'wpsuite-webcrypto-vendor',
+                'smartcloud-wpsuite-webcrypto-vendor',
                 plugins_url('assets/js/wpsuite-webcrypto-vendor.min.js', __FILE__),
                 array(),
                 VERSION_WEBCRYPTO,
@@ -120,7 +120,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             );
 
             wp_register_script(
-                'wpsuite-mantine-vendor',
+                'smartcloud-wpsuite-mantine-vendor',
                 plugins_url('assets/js/wpsuite-mantine-vendor.min.js', __FILE__),
                 array(),
                 VERSION_MANTINE,
@@ -128,11 +128,11 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             );
 
             $script_asset = array();
-            if (file_exists(WPSUITE_PATH . 'index.asset.php')) {
-                $script_asset = require_once(WPSUITE_PATH . 'index.asset.php');
+            if (file_exists(SMARTCLOUD_WPSUITE_PATH . 'index.asset.php')) {
+                $script_asset = require_once(SMARTCLOUD_WPSUITE_PATH . 'index.asset.php');
             }
-            $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('wpsuite-webcrypto-vendor', 'wpsuite-mantine-vendor'));
-            wp_enqueue_script('wpsuite-admin-script', WPSUITE_URL . 'index.js', $script_asset['dependencies'], WPSUITE_VERSION, true);
+            $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-wpsuite-webcrypto-vendor', 'smartcloud-wpsuite-mantine-vendor'));
+            wp_enqueue_script('smartcloud-wpsuite-admin-script', SMARTCLOUD_WPSUITE_URL . 'index.js', $script_asset['dependencies'], SMARTCLOUD_WPSUITE_VERSION, true);
 
             if ($hook === $connect_suffix) {
                 $page = 'connect';
@@ -142,10 +142,10 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 $page = '';
             }
             $js = '__wpsuiteGlobal.WpSuite.view = ' . wp_json_encode($page) . ';';
-            wp_add_inline_script('wpsuite-admin-script', $js, 'before');
+            wp_add_inline_script('smartcloud-wpsuite-admin-script', $js, 'before');
 
-            wp_enqueue_style('wpsuite-admin-style', WPSUITE_URL . 'index.css', array(), WPSUITE_VERSION);
-            wp_enqueue_style('wpsuite-mantine-vendor-style', WPSUITE_URL . '../assets/css/wpsuite-mantine-vendor.css', array(), VERSION_MANTINE);
+            wp_enqueue_style('smartcloud-wpsuite-admin-style', SMARTCLOUD_WPSUITE_URL . 'index.css', array(), SMARTCLOUD_WPSUITE_VERSION);
+            wp_enqueue_style('smartcloud-wpsuite-mantine-vendor-style', SMARTCLOUD_WPSUITE_URL . '../assets/css/mantine-vendor.css', array(), VERSION_MANTINE);
         });
     }
 
@@ -157,8 +157,8 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         if ($this->siteSettings->subscriber) {
             // If the site is a subscriber, we need to check if the configuration and the license exist.
 
-            $lock_key = WPSUITE_SLUG . '/license-refresh-lock';
-            $time_key = WPSUITE_SLUG . '/license-last-refresh';
+            $lock_key = SMARTCLOUD_WPSUITE_SLUG . '/license-refresh-lock';
+            $time_key = SMARTCLOUD_WPSUITE_SLUG . '/license-last-refresh';
 
             /* ---- 1.  handling race-conditions (5-minute lock) ---- */
             if (get_transient($lock_key)) {
@@ -171,7 +171,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
 
             $upload_dir_info = wp_upload_dir();
             $base_dir = trailingslashit($upload_dir_info['basedir']);
-            $plugin_subdir = trailingslashit($base_dir . WPSUITE_SLUG);
+            $plugin_subdir = trailingslashit($base_dir . SMARTCLOUD_WPSUITE_SLUG);
             $config_path = $plugin_subdir . 'config.enc';
             $jws_path = $plugin_subdir . 'lic.jws';
             $exists = file_exists($config_path) && file_exists($jws_path);
@@ -201,27 +201,13 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
 
     public function renderAdminPage()
     {
-        echo '<div id="wpsuite-admin"></div>';
+        echo '<div id="smartcloud-wpsuite-admin"></div>';
     }
 
     public function initRestApi()
     {
-        /*
         register_rest_route(
-            WPSUITE_SLUG . '/v1',
-            '/diagnostics',
-            array(
-                'methods' => 'GET',
-                'permission_callback' => function () {
-                    return current_user_can('manage_options');
-                },
-                'callback' => array($this, 'handleDiagnostics'),
-            )
-        );
-        */
-
-        register_rest_route(
-            WPSUITE_SLUG . '/v1',
+            SMARTCLOUD_WPSUITE_SLUG . '/v1',
             '/update-site-settings',
             array(
                 'methods' => 'POST',
@@ -234,114 +220,6 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 },
             )
         );
-    }
-
-    public function handleDiagnostics(\WP_REST_Request $request)
-    {
-        // 1) Required minimums (Requires at least / Requires PHP)
-        if (!function_exists('get_plugin_data')) {
-            require_once ABSPATH . 'wp-admin/includes/plugin.php';
-        }
-        // Assume the main file is named wpsuite.php in the plugin root:
-        $main_file = trailingslashit(WPSUITE_PATH) . 'hub-for-wpsuite.php';
-        $plugin_data = file_exists($main_file) ? get_plugin_data($main_file, false, false) : null;
-
-        $required_wp = $plugin_data['RequiresWP'] ?? '6.7';
-        $required_php = $plugin_data['RequiresPHP'] ?? '8.1';
-
-        // 2) Measured values
-        global $wp_version;
-        $current_wp = $wp_version;
-        $current_php = PHP_VERSION;
-
-        // 3) Basic environment checks
-        $rest_ok = null;
-        $rest_error = null;
-        $loopback_ok = null;
-        $loopback_error = null;
-
-        // REST reachability (own REST URL succeeds without nonce: 200/401, when fails: 0/5xx)
-        $rest_url = rest_url();
-        $r = wp_remote_get($rest_url, array('timeout' => 3));
-        if (is_wp_error($r)) {
-            $rest_ok = false;
-            $rest_error = $r->get_error_message();
-        } else {
-            $code = (int) wp_remote_retrieve_response_code($r);
-            // 200–401 elfogadható: a REST elérhető
-            $rest_ok = ($code >= 200 && $code < 402);
-            if (!$rest_ok) {
-                $rest_error = 'HTTP ' . $code;
-            }
-        }
-
-        // Loopback (server reaching itself) – home_url accessible
-        $home = home_url('/');
-        $lb = wp_remote_get($home, array('timeout' => 3));
-        if (is_wp_error($lb)) {
-            $loopback_ok = false;
-            $loopback_error = $lb->get_error_message();
-        } else {
-            $code = (int) wp_remote_retrieve_response_code($lb);
-            $loopback_ok = ($code >= 200 && $code < 400);
-            if (!$loopback_ok) {
-                $loopback_error = 'HTTP ' . $code;
-            }
-        }
-
-        // Uploads directory
-        $uploads = wp_upload_dir();
-        $uploads_path = $uploads['basedir'] ?? '';
-        $uploads_writable = (is_dir($uploads_path) && WP_Filesystem_Direct::is_writable($uploads_path));
-        $uploads_error = $uploads['error'] ?? '';
-
-        // SSL
-        $ssl = is_ssl();
-
-        // Site URL (pro license domain restriction)
-        $site_url = site_url();
-
-        // 4) Result and pass/fail
-        $ok_wp = (version_compare($current_wp, $required_wp, '>='));
-        $ok_php = (version_compare($current_php, $required_php, '>='));
-
-        $payload = array(
-            'versions' => array(
-                'wp' => array(
-                    'current' => $current_wp,
-                    'required' => $required_wp,
-                    'ok' => $ok_wp,
-                ),
-                'php' => array(
-                    'current' => $current_php,
-                    'required' => $required_php,
-                    'ok' => $ok_php,
-                ),
-            ),
-            'rest' => array(
-                'url' => $rest_url,
-                'ok' => $rest_ok,
-                'error' => $rest_error,
-            ),
-            'loopback' => array(
-                'url' => $home,
-                'ok' => $loopback_ok,
-                'error' => $loopback_error,
-            ),
-            'uploads' => array(
-                'basedir' => $uploads_path,
-                'writable' => $uploads_writable,
-                'error' => $uploads_error,
-            ),
-            'ssl' => array(
-                'enabled' => (bool) $ssl,
-                'note' => 'SSL is recommended but optional.',
-            ),
-            'siteUrl' => $site_url,
-            'timestamp' => time(),
-        );
-
-        return new \WP_REST_Response($payload, 200);
     }
 
     public function updateSiteSettings(WP_REST_Request $request)
@@ -357,7 +235,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 $settings_param->siteKey
             );
 
-            update_option(WPSUITE_SLUG . '/site-settings', $this->siteSettings);
+            update_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings', $this->siteSettings);
         } else {
             $this->siteSettings = new SiteSettings(
                 accountId: '',
@@ -366,7 +244,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 subscriber: false,
                 siteKey: '',
             );
-            delete_option(WPSUITE_SLUG . '/site-settings');
+            delete_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings');
         }
 
         if ($settings_param->subscriber) {
@@ -425,7 +303,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 if (is_array($data) && isset($data['config'], $data['jws'])) {
                     $upload_dir_info = wp_upload_dir();
                     $base_dir = trailingslashit($upload_dir_info['basedir']);
-                    $plugin_subdir = trailingslashit($base_dir . WPSUITE_SLUG);
+                    $plugin_subdir = trailingslashit($base_dir . SMARTCLOUD_WPSUITE_SLUG);
 
                     wp_mkdir_p($plugin_subdir);
 
@@ -436,7 +314,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                     file_put_contents($config_path, sanitize_text_field($data['config']));
                     file_put_contents($jws_path, sanitize_text_field($data['jws']));
 
-                    update_option(WPSUITE_SLUG . '/license-last-refresh', time());
+                    update_option(SMARTCLOUD_WPSUITE_SLUG . '/license-last-refresh', time());
                 }
             }
         }
@@ -446,7 +324,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
     {
         $upload_dir_info = wp_upload_dir();
         $base_dir = trailingslashit($upload_dir_info['basedir']);
-        $plugin_subdir = trailingslashit($base_dir . WPSUITE_SLUG);
+        $plugin_subdir = trailingslashit($base_dir . SMARTCLOUD_WPSUITE_SLUG);
 
         $config_path = $plugin_subdir . 'config.enc';
         $jws_path = $plugin_subdir . 'lic.jws';

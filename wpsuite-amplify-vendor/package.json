@@ -1,14 +1,14 @@
 {
   "name": "@smart-cloud/wpsuite-amplify-vendor",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
-  "main": "dist/wpsuite-amplify-vendor.min.js",
+  "main": "dist/amplify-vendor.min.js",
   "scripts": {
     "build": "tsup --minify"
   },
   "dependencies": {
     "@aws-amplify/ui-react": "^6.13.2",
-    "aws-amplify": "^6.15.9"
+    "aws-amplify": "^6.16.0"
   },
   "devDependencies": {
     "esbuild-plugin-external-global": "^1.0.1",

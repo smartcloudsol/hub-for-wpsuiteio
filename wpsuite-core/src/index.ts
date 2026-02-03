@@ -17,7 +17,7 @@ export interface WpSuiteEvents {
   on(
     type: string,
     cb: (ev: Event) => void,
-    opts?: AddEventListenerOptions
+    opts?: AddEventListenerOptions,
   ): void;
 }
 
@@ -56,7 +56,7 @@ export function getWpSuite(): WpSuiteGlobal | undefined {
 }
 
 export function getPlugin<K extends string>(
-  key: K
+  key: K,
 ): WpSuitePluginBase | undefined {
   return globalThis.WpSuite?.plugins[key];
 }
@@ -64,7 +64,7 @@ export function getPlugin<K extends string>(
 export { getRecaptcha, type RecaptchaFunction } from "./utils";
 export { attachDefaultPluginRuntime } from "./runtime";
 
-export const TEXT_DOMAIN = "hub-for-wpsuiteio";
+export const TEXT_DOMAIN = "smartcloud-wpsuite";
 
 export interface SiteSettings {
   accountId?: string;
@@ -77,7 +77,7 @@ export interface SiteSettings {
 export type SubscriptionType = "PROFESSIONAL" | "AGENCY";
 
 export const getConfig = async (
-  plugin: string
+  plugin: string,
 ): Promise<Record<string, unknown> | null> => {
   const configLoader = await import(
     __WPSUITE_PREMIUM__ ? "./paid-features/config" : "./free-features/config"

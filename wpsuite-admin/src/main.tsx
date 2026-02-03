@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { __experimentalHeading as Heading } from "@wordpress/components";
 import { __ } from "@wordpress/i18n";
 
-import { DEFAULT_THEME, Stack, Text } from "@mantine/core";
+import { Anchor, DEFAULT_THEME, Stack, Text } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 
 import { getWpSuite, TEXT_DOMAIN } from "@smart-cloud/wpsuite-core";
@@ -44,17 +44,17 @@ const Main = (props: MainProps) => {
   >();
   const [ownAccountId, setOwnAccountId] = useState<string>();
   const [accountId, setAccountId] = useState<string | undefined>(
-    wpsuite!.siteSettings.accountId
+    wpsuite!.siteSettings.accountId,
   );
   const [siteId, setSiteId] = useState<string | undefined>(
-    wpsuite!.siteSettings.siteId
+    wpsuite!.siteSettings.siteId,
   );
   const [siteKey, setSiteKey] = useState<string | undefined>(
-    wpsuite!.siteSettings.siteKey
+    wpsuite!.siteSettings.siteKey,
   );
 
   const isMobile = useMediaQuery(
-    `(max-width: ${DEFAULT_THEME.breakpoints.sm})`
+    `(max-width: ${DEFAULT_THEME.breakpoints.sm})`,
   );
 
   const { data: configuration } = useQuery({
@@ -159,13 +159,13 @@ const Main = (props: MainProps) => {
         !scopes.includes("sc.account.admin." + accountId)
       ) {
         console.error(
-          "You do not have permission to access this resource. Please contact site owner."
+          "You do not have permission to access this resource. Please contact site owner.",
         );
         const accId = scopes
           .find(
             (scope) =>
               scope.startsWith("sc.account.owner.") ||
-              scope.startsWith("sc.account.admin.")
+              scope.startsWith("sc.account.admin."),
           )
           ?.split(".")[3];
 
@@ -203,15 +203,31 @@ const Main = (props: MainProps) => {
             color: "#218BE6",
           }}
         >
-          {__(
-            isMobile ? "WPSuite.io HUB" : "Central Hub for WPSuite.io Plugins",
-            TEXT_DOMAIN
-          )}
+          {__(isMobile ? "WPSuite" : "WPSuite Site Connection", TEXT_DOMAIN)}
         </Heading>
         <Text>
-          Link this WordPress installation to your WP Suite workspace to enable
-          licensing and shared features. You can disconnect or switch workspaces
-          at any time without affecting your content.
+          <strong>WPSuite</strong> is a commercial platform developed by{" "}
+          <strong>Smart Cloud Solutions, Inc</strong>. Connecting your site lets
+          SmartCloud plugins store and load Pro feature configuration (for
+          example, API, chatbot, or feature settings) from your WPSuite
+          workspace.
+        </Text>
+        <Text>
+          After connecting, you can{" "}
+          <strong>preview and try Pro features in WP Admin</strong> before
+          enabling them on your live site. You can disconnect or switch sites at
+          any time.
+        </Text>
+        <Text>
+          Learn more about the WPSuite platform, documentation, and updates at{" "}
+          <Anchor
+            href="https://wpsuite.io"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            https://wpsuite.io
+          </Anchor>
+          .
         </Text>
       </Stack>{" "}
       <LicenseHandler
@@ -228,6 +244,10 @@ const Main = (props: MainProps) => {
         setSiteId={setSiteId}
         setSiteKey={setSiteKey}
       />
+      <Text c="dimmed" size="xs" mt="md" fs="italic">
+        WPSuite.io is a commercial platform by Smart Cloud Solutions, Inc. and
+        is not affiliated with or endorsed by WordPress.org.
+      </Text>
     </div>
   );
 };

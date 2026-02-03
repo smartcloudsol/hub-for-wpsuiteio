@@ -30,7 +30,7 @@ const queryClient = new QueryClient({
 
 const wpsuite = getWpSuite();
 const view = wpsuite?.view ?? "connect";
-const root = createRoot(document.getElementById("wpsuite-admin")!);
+const root = createRoot(document.getElementById("smartcloud-wpsuite-admin")!);
 if (view === "diagnostics") {
   const Diagnostics = await import("./diagnostics");
   root.render(
@@ -43,7 +43,7 @@ if (view === "diagnostics") {
           </ModalsProvider>
         </MantineProvider>
       </QueryClientProvider>
-    </StrictMode>
+    </StrictMode>,
   );
 } else {
   root.render(
@@ -56,6 +56,6 @@ if (view === "diagnostics") {
           </ModalsProvider>
         </MantineProvider>
       </QueryClientProvider>
-    </StrictMode>
+    </StrictMode>,
   );
 }

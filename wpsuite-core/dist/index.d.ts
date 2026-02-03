@@ -45,7 +45,7 @@ interface WpSuiteGlobal {
 declare function getWpSuite(): WpSuiteGlobal | undefined;
 declare function getPlugin<K extends string>(key: K): WpSuitePluginBase | undefined;
 
-declare const TEXT_DOMAIN = "hub-for-wpsuiteio";
+declare const TEXT_DOMAIN = "smartcloud-wpsuite";
 interface SiteSettings {
     accountId?: string;
     siteId?: string;

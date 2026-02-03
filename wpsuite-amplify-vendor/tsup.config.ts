@@ -5,7 +5,7 @@ import path from "path";
 
 export default defineConfig({
   entry: {
-    "wpsuite-amplify-vendor": "src/index.ts",
+    "amplify-vendor": "src/index.ts",
   },
   format: ["iife"],
   globalName: "WpSuiteAmplify",
@@ -25,8 +25,8 @@ export default defineConfig({
   ],
   onSuccess: async () => {
     const dist = "dist";
-    const src = path.join(dist, "wpsuite-amplify-vendor.global.js");
-    const dst = path.join(dist, "wpsuite-amplify-vendor.min.js");
+    const src = path.join(dist, "amplify-vendor.global.js");
+    const dst = path.join(dist, "amplify-vendor.min.js");
 
     if (fs.existsSync(src)) fs.renameSync(src, dst);
   },

@@ -199,10 +199,10 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@mantine/core@^8.3.12":
-  version "8.3.12"
-  resolved "https://registry.npmjs.org/@mantine/core/-/core-8.3.12.tgz#84e6c3394f4495ab57019ba2d1f42bb940d6e916"
-  integrity sha512-bDEoUl4SneltfI1GeEaBk6BVDbLuB/w15YwseAmUvc8ldAbNcsVhxKxY/BdhwqUo6O3L2vhdlb3WwxR1y8741g==
+"@mantine/core@^8.3.14":
+  version "8.3.14"
+  resolved "https://registry.npmjs.org/@mantine/core/-/core-8.3.14.tgz#b0a90384c4461b5e8269f569efce23b9c2661887"
+  integrity sha512-ZOxggx65Av1Ii1NrckCuqzluRpmmG+8DyEw24wDom3rmwsPg9UV+0le2QTyI5Eo60LzPfUju1KuEPiUzNABIPg==
   dependencies:
     "@floating-ui/react" "^0.27.16"
     clsx "^2.1.1"
@@ -211,36 +211,36 @@
     react-textarea-autosize "8.5.9"
     type-fest "^4.41.0"
 
-"@mantine/form@^8.3.12":
-  version "8.3.12"
-  resolved "https://registry.npmjs.org/@mantine/form/-/form-8.3.12.tgz#9a4a76b3beb39fa32657aa130ab84e33f541fe7f"
-  integrity sha512-bjXL1Ah3lAZYHrjrF37FeHV8DFGeXV+apn0PRQw2MTLpdUSqKsiYIDDgugzRfNXWX1cn1ELtxtDXsMfdj/LI7Q==
+"@mantine/form@^8.3.14":
+  version "8.3.14"
+  resolved "https://registry.npmjs.org/@mantine/form/-/form-8.3.14.tgz#0829f2b5329dee631495877f904e0d642c52dbcf"
+  integrity sha512-LJUeab+oF+YzATrm/K03Z/QoVVYlaolWqLUZZj7XexNA4hS2/ycKyWT07YhGkdHTLXkf3DUtrg1sS77K7Oje8A==
   dependencies:
     fast-deep-equal "^3.1.3"
     klona "^2.0.6"
 
-"@mantine/hooks@^8.3.12":
-  version "8.3.12"
-  resolved "https://registry.npmjs.org/@mantine/hooks/-/hooks-8.3.12.tgz#8cedb8e5a51dc1274f73c7147cfcd3763bec03c2"
-  integrity sha512-lMMDzDewd3lUNtJCAHDj3g8On9X5aBl4q6EBwgOixKQSby9RG9ASEpK8oYHundHTm9tzo3MDeXWV/z32oSQWuw==
+"@mantine/hooks@^8.3.14":
+  version "8.3.14"
+  resolved "https://registry.npmjs.org/@mantine/hooks/-/hooks-8.3.14.tgz#a3bb14b4c310cef10ed9c7dcf0d3bc416373fd3a"
+  integrity sha512-0SbHnGEuHcF2QyjzBBcqidpjNmIb6n7TC3obnhkBToYhUTbMcJSK/8ei/yHtAelridJH4CPeohRlQdc0HajHyQ==
 
-"@mantine/modals@^8.3.12":
-  version "8.3.12"
-  resolved "https://registry.npmjs.org/@mantine/modals/-/modals-8.3.12.tgz#a8abe5fa56575330858fbd732772739e0d493c65"
-  integrity sha512-+uRyGe2lLy601qlMk+8aR9d/Aibu+dZi6Jcmvm5z8Gw4ocviyMMlnd8BLSQ/Jvib2OX8fWj+yUQN7FMQ4Rbwjw==
+"@mantine/modals@^8.3.14":
+  version "8.3.14"
+  resolved "https://registry.npmjs.org/@mantine/modals/-/modals-8.3.14.tgz#7f481b84c06ee722f1af856884aef5696b539803"
+  integrity sha512-BBM53MBq0vKZ7MKmTbqdt6i5eZEoAbfllCHVlQ7J4Xlr1LehoxO3q0MuwPr5kkjSWAPw5okiviKoMYXIKBn53w==
 
-"@mantine/notifications@^8.3.12":
-  version "8.3.12"
-  resolved "https://registry.npmjs.org/@mantine/notifications/-/notifications-8.3.12.tgz#de1348622c99354ec3c28f3b7272d2f8ce148349"
-  integrity sha512-lqPPa11XdcndG8ywMao8yVkMA4jg/pBNbS85bR7OwHQa1yUftmfVlqJl9PZZCiWLX2AgKY3+xM5dHo4LidL+DA==
+"@mantine/notifications@^8.3.14":
+  version "8.3.14"
+  resolved "https://registry.npmjs.org/@mantine/notifications/-/notifications-8.3.14.tgz#75f7511e6dbc505ea91561a5856bfc01e5a70f96"
+  integrity sha512-+ia97wrcU9Zfv+jXYvgr2GdISqKTHbQE9nnEIZvGUBPAqKr9b2JAsaXQS/RsAdoXUI+kKDEtH2fyVYS7zrSi/Q==
   dependencies:
-    "@mantine/store" "8.3.12"
+    "@mantine/store" "8.3.14"
     react-transition-group "4.4.5"
 
-"@mantine/store@8.3.12":
-  version "8.3.12"
-  resolved "https://registry.npmjs.org/@mantine/store/-/store-8.3.12.tgz#75d0b8ffbba3da5dfa65c738da0abf48b4f0ba1c"
-  integrity sha512-EC4eIKpm5s7neMbBrWsP6jGKLqrzHf63Ao3penYr7fn25dFXdbXZYw+IG8GYzxOC4yG61b2zTS+bpy5+vwzXpw==
+"@mantine/store@8.3.14":
+  version "8.3.14"
+  resolved "https://registry.npmjs.org/@mantine/store/-/store-8.3.14.tgz#819528797053b2e4756ac33dccfc3ab529617877"
+  integrity sha512-bgW+fYHDOp7Pk4+lcEm3ZF7dD/sIMKHyR985cOqSHAYJPRcVFb+zcEK/SWoFZqlyA4qh08CNrASOaod8N0XKfA==
 
 "@rollup/rollup-android-arm-eabi@4.55.1":
   version "4.55.1"

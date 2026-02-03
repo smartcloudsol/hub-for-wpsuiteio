@@ -20,7 +20,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    "types": ["jquery"]
+    "types": ["node", "jquery"]
   },
   "include": ["src"],
   "exclude": ["dist", "build", "node_modules"],
