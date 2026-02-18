@@ -4,7 +4,7 @@ import path from "path";
 
 export default defineConfig({
   entry: {
-    "webcrypto-vendor": "src/polyfill-entry.ts",
+    "wpsuite-webcrypto-vendor": "src/polyfill-entry.ts",
   },
   format: ["iife"],
   globalName: "WpSuiteWebcrypto",
@@ -14,7 +14,7 @@ export default defineConfig({
   treeshake: false,
   onSuccess: async () => {
     const dist = "dist";
-    const src = path.join(dist, "webcrypto-vendor.global.js");
+    const src = path.join(dist, "wpsuite-webcrypto-vendor.global.js");
     const dst = path.join(dist, "webcrypto-vendor.min.js");
 
     if (fs.existsSync(src)) fs.renameSync(src, dst);

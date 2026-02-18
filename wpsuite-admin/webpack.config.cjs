@@ -13,7 +13,7 @@ module.exports = function () {
       "@mantine/hooks": "WpSuiteMantine",
       "@mantine/modals": "WpSuiteMantine",
       "@mantine/notifications": "WpSuiteMantine",
-      crypto: "WpSuiteWebcrypto",
+      "jose": "WpSuiteJose",
     },
     plugins: [
       ...(defaultConfig.plugins

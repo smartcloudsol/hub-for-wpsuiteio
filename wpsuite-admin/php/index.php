@@ -21,9 +21,9 @@ if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'model.php')) {
     require_once SMARTCLOUD_WPSUITE_PATH . 'model.php';
 }
 
-const VERSION_WEBCRYPTO = '1.0.2';
-const VERSION_AMPLIFY = '1.1.0';
-const VERSION_MANTINE = '1.0.3';
+const VERSION_WEBCRYPTO = '1.1.0';
+const VERSION_AMPLIFY = '1.1.1';
+const VERSION_MANTINE = '1.0.4';
 
 class HubAdmin
 {
@@ -112,14 +112,6 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             }
 
             wp_register_script(
-                'smartcloud-wpsuite-webcrypto-vendor',
-                plugins_url('assets/js/wpsuite-webcrypto-vendor.min.js', __FILE__),
-                array(),
-                VERSION_WEBCRYPTO,
-                false
-            );
-
-            wp_register_script(
                 'smartcloud-wpsuite-mantine-vendor',
                 plugins_url('assets/js/wpsuite-mantine-vendor.min.js', __FILE__),
                 array(),
@@ -131,7 +123,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             if (file_exists(SMARTCLOUD_WPSUITE_PATH . 'index.asset.php')) {
                 $script_asset = require_once(SMARTCLOUD_WPSUITE_PATH . 'index.asset.php');
             }
-            $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-wpsuite-webcrypto-vendor', 'smartcloud-wpsuite-mantine-vendor'));
+            $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-wpsuite-mantine-vendor'));
             wp_enqueue_script('smartcloud-wpsuite-admin-script', SMARTCLOUD_WPSUITE_URL . 'index.js', $script_asset['dependencies'], SMARTCLOUD_WPSUITE_VERSION, true);
 
             if ($hook === $connect_suffix) {
