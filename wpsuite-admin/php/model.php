@@ -17,6 +17,10 @@ class SiteSettings
         public int $lastUpdate = 0,
         public bool $subscriber = false,
         public string $siteKey = "",
+        public string $reCaptchaPublicKey = "",
+        public bool $useRecaptchaNet = false,
+        public bool $useRecaptchaEnterprise = false,
+        public bool $renderRecaptchaProvider = true,
     ) {
     }
 }

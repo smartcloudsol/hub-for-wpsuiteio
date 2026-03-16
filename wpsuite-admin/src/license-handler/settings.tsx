@@ -149,7 +149,7 @@ const PAGE_SIZE = 3;
 const wpsuite = getWpSuite();
 
 export const Settings: FunctionComponent<SettingsProps> = (
-  props: SettingsProps
+  props: SettingsProps,
 ) => {
   const {
     amplifyConfigured,
@@ -183,7 +183,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
   const [customerId, setCustomerId] = useState<string | null>();
   const [clientSecret, setClientSecret] = useState<string | null>();
   const [site, setSite] = useState<Site | null | undefined>(
-    loadSiteEnabled ? undefined : null
+    loadSiteEnabled ? undefined : null,
   );
   const [subscription, setSubscription] = useState<
     Site["subscription"] | null | undefined
@@ -193,7 +193,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
   >(accountId || siteId ? undefined : null);
 
   const isMobile = useMediaQuery(
-    `(max-width: ${DEFAULT_THEME.breakpoints.sm})`
+    `(max-width: ${DEFAULT_THEME.breakpoints.sm})`,
   );
   const { width: vw } = useViewportSize();
   const dropdownWidth = Math.min(300, vw - parseInt(rem(32)));
@@ -309,7 +309,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
           setCreatingUpdateSubscriptionSession(undefined);
         });
     },
-    [accountId, creatingUpdateSubscriptionSession, subscription]
+    [accountId, creatingUpdateSubscriptionSession, subscription],
   );
 
   const openModal = useCallback(
@@ -329,7 +329,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
                 the end of your billing period on{" "}
                 <strong>
                   {new Date(
-                    (site.subscription?.currentPeriodEnd ?? 0) * 1000
+                    (site.subscription?.currentPeriodEnd ?? 0) * 1000,
                   )?.toLocaleString("en")}
                 </strong>
                 . If you change your mind, you can renew your subscription.
@@ -352,7 +352,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
                 terms after{" "}
                 <strong>
                   {new Date(
-                    (site.subscription?.currentPeriodEnd ?? 0) * 1000
+                    (site.subscription?.currentPeriodEnd ?? 0) * 1000,
                   )?.toLocaleString("en")}
                 </strong>
                 .
@@ -374,7 +374,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
               <Text size="sm">
                 This subscription will no longer be canceled. It will renew on{" "}
                 {new Date(
-                  (site.subscription?.currentPeriodEnd ?? 0) * 1000
+                  (site.subscription?.currentPeriodEnd ?? 0) * 1000,
                 )?.toLocaleString("en")}
                 .
               </Text>
@@ -401,7 +401,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
         centered: true,
       });
     },
-    [cancelOrNewSubscription]
+    [cancelOrNewSubscription],
   );
 
   const { isError: isAccountError } = useQuery({
@@ -448,6 +448,10 @@ export const Settings: FunctionComponent<SettingsProps> = (
       const subscriber = siteSettings
         ? siteSettings.subscriber
         : !!subscriptionType;
+
+      // Preserve current recaptcha settings from wpsuite global
+      const currentSettings = wpsuite?.siteSettings || {};
+
       return fetch(wpsuite!.restUrl + "/update-site-settings", {
         method: "POST",
         headers: {
@@ -460,6 +464,23 @@ export const Settings: FunctionComponent<SettingsProps> = (
           siteKey: siteSettings ? siteSettings.siteKey : siteKey,
           lastUpdate: new Date().getTime(),
           subscriber,
+          // Preserve existing recaptcha settings
+          reCaptchaPublicKey:
+            siteSettings?.reCaptchaPublicKey ??
+            currentSettings.reCaptchaPublicKey ??
+            "",
+          useRecaptchaNet:
+            siteSettings?.useRecaptchaNet ??
+            currentSettings.useRecaptchaNet ??
+            false,
+          useRecaptchaEnterprise:
+            siteSettings?.useRecaptchaEnterprise ??
+            currentSettings.useRecaptchaEnterprise ??
+            false,
+          renderRecaptchaProvider:
+            siteSettings?.renderRecaptchaProvider ??
+            currentSettings.renderRecaptchaProvider ??
+            true,
         }),
         credentials: "same-origin",
       }).finally(() => {
@@ -487,7 +508,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
       siteId,
       siteKey,
       subscriptionType,
-    ]
+    ],
   );
 
   const saveSiteSettingsMutation = useMutation({
@@ -611,7 +632,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
                         title: __("Cache cleared", TEXT_DOMAIN),
                         message: __(
                           "Front-end site configuration cleared successfully.",
-                          TEXT_DOMAIN
+                          TEXT_DOMAIN,
                         ),
                         color: "green",
                         icon: <IconTrash />,
@@ -697,7 +718,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
                                 site,
                                 subscription.cancelAtPeriodEnd
                                   ? "renew"
-                                  : "cancel_schedule"
+                                  : "cancel_schedule",
                               )
                             }
                           >
@@ -757,7 +778,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
   useEffect(() => {
     if (authStatus === "authenticated") {
       fetchUserAttributes().then((userAttributes) =>
-        setEmail(userAttributes?.email)
+        setEmail(userAttributes?.email),
       );
     }
   }, [apiUrl, authStatus]);
@@ -767,7 +788,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
       getConfig("wpsuite").then((config) =>
         config && (config["subscriptionType"] as SubscriptionType)
           ? setSubscriptionType(config["subscriptionType"] as SubscriptionType)
-          : setSubscriptionType(null)
+          : setSubscriptionType(null),
       );
     }
   }, [accountId, siteId]);
@@ -1187,7 +1208,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
                                               e.stopPropagation();
                                               const component = jQuery(
                                                 "#gatey-license-url-" +
-                                                  site.siteId
+                                                  site.siteId,
                                               );
                                               component.trigger("select");
                                               navigator.clipboard.writeText(
@@ -1196,7 +1217,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
                                                   site.accountId +
                                                   "/site/" +
                                                   site.siteId +
-                                                  "/license"
+                                                  "/license",
                                               );
                                               notifications.show({
                                                 title: "License URL copied",
@@ -1239,11 +1260,12 @@ export const Settings: FunctionComponent<SettingsProps> = (
                                               e.preventDefault();
                                               e.stopPropagation();
                                               const component = jQuery(
-                                                "#gatey-site-key-" + site.siteId
+                                                "#gatey-site-key-" +
+                                                  site.siteId,
                                               );
                                               component.trigger("select");
                                               navigator.clipboard.writeText(
-                                                site.siteKey ?? ""
+                                                site.siteKey ?? "",
                                               );
                                               notifications.show({
                                                 title: "Site key copied",
@@ -1379,7 +1401,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
                                   — expires on{" "}
                                   <strong>
                                     {new Date(
-                                      subscription.currentPeriodEnd * 1000
+                                      subscription.currentPeriodEnd * 1000,
                                     ).toLocaleDateString()}
                                   </strong>
                                 </>
@@ -1404,7 +1426,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
                                   on{" "}
                                   <strong>
                                     {new Date(
-                                      subscription.currentPeriodEnd * 1000
+                                      subscription.currentPeriodEnd * 1000,
                                     ).toLocaleDateString()}
                                   </strong>
                                 </>
@@ -1472,10 +1494,10 @@ function SiteSelector({
     string | undefined
   >(accountId);
   const [selectedSiteId, setSelectedSiteId] = useState<string | undefined>(
-    siteId
+    siteId,
   );
   const [selectedSiteKey, setSelectedSiteKey] = useState<string | undefined>(
-    siteKey
+    siteKey,
   );
   const [selectedSiteSubscriber, setSelectedSiteSubscriber] = useState<
     boolean | undefined
@@ -1518,7 +1540,7 @@ function SiteSelector({
         .finally(() => {
           setSitesReloading(false);
         }),
-    [selectedAccountId]
+    [selectedAccountId],
   );
 
   const fetchSites = useCallback(
@@ -1552,7 +1574,7 @@ function SiteSelector({
         .finally(() => {
           setSitesReloading(false);
         }),
-    [selectedAccountId, debouncedFilter, order]
+    [selectedAccountId, debouncedFilter, order],
   );
 
   const {
@@ -1586,12 +1608,12 @@ function SiteSelector({
 
   const sites = useMemo(
     () => sitesRecord?.pages.flatMap((p) => (p as ListPage<Site>).list) ?? [],
-    [sitesRecord]
+    [sitesRecord],
   );
 
   const totalPages = useMemo(
     () => Math.max(sitesRecord?.pages.length ?? 0, 1),
-    [sitesRecord]
+    [sitesRecord],
   );
 
   if (totalPages > 0 && activePage > totalPages) {
@@ -1608,7 +1630,7 @@ function SiteSelector({
         setActivePage(page);
       }
     },
-    [fetchNextPage, hasNextPage, totalPages]
+    [fetchNextPage, hasNextPage, totalPages],
   );
 
   const queryClient = useQueryClient();
@@ -1699,7 +1721,7 @@ function SiteSelector({
             | {
                 pages: ListPage<Site>[];
               }
-            | undefined
+            | undefined,
         ) => {
           if (!data) return data;
           return {
@@ -1709,7 +1731,7 @@ function SiteSelector({
               list: p.list.filter((s: Site) => s.siteId !== id),
             })),
           };
-        }
+        },
       );
       return { prev };
     },
@@ -1754,7 +1776,7 @@ function SiteSelector({
                   setSelectedSiteId(value === accountId ? siteId : undefined);
                   setSelectedSiteKey(value === accountId ? siteKey : undefined);
                   setSelectedSiteSubscriber(
-                    value === accountId ? subscriber : undefined
+                    value === accountId ? subscriber : undefined,
                   );
                   setActivePage(1);
                   setSiteEditing(false);

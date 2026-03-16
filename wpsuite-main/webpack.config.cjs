@@ -1,25 +1,40 @@
 const defaultConfig = require("@wordpress/scripts/config/webpack.config");
-const webpack = require("webpack");
 const DependencyExtractionWebpackPlugin = require("@wordpress/dependency-extraction-webpack-plugin");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-
-console.log("PREMIUM BUILD:", process.env.WPSUITE_PREMIUM === "true");
 
 module.exports = function () {
   const config = {
     ...defaultConfig,
+    resolve: {
+      ...defaultConfig.resolve,
+      fallback: {
+        crypto: false,
+        buffer: false,
+        stream: false,
+      }
+    },
     externals: {
       ...defaultConfig.externals,
-      "@mantine/core": "WpSuiteMantine",
-      "@mantine/form": "WpSuiteMantine",
-      "@mantine/hooks": "WpSuiteMantine",
-      "@mantine/modals": "WpSuiteMantine",
-      "@mantine/notifications": "WpSuiteMantine",
+      "aws-amplify": "WpSuiteAmplify",
+      "aws-amplify/auth": "WpSuiteAmplify",
+      "aws-amplify/api": "WpSuiteAmplify",
+      "aws-amplify/utils": "WpSuiteAmplify",
+      "@aws-amplify/ui": "WpSuiteAmplify",
+      "@aws-amplify/ui-react": "WpSuiteAmplify",
+      "@aws-amplify/ui-react-core": "WpSuiteAmplify",
+      "country-data-list": "WpSuiteAmplify",
+      "crypto": "WpSuiteCrypto",
       "jose": "WpSuiteJose",
+    },
+    optimization: {
+      ...defaultConfig.optimization,
+      splitChunks: false,
+      runtimeChunk: false,
     },
     output: {
       ...defaultConfig.output,
-      filename: 'admin.js',
+      filename: 'main.js',
+      chunkFilename: "[name].js",
     },
     plugins: [
       ...(defaultConfig.plugins
@@ -28,13 +43,10 @@ module.exports = function () {
         )
         : []),
       new DependencyExtractionWebpackPlugin({
-        outputFilename: 'admin.asset.php',
+        outputFilename: 'main.asset.php',
       }),
       new MiniCssExtractPlugin({
-        filename: 'admin.css',
-      }),
-      new webpack.EnvironmentPlugin({
-        WPSUITE_PREMIUM: false,
+        filename: 'main.css',
       }),
     ],
   };

@@ -199,10 +199,10 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@mantine/core@^8.3.15":
-  version "8.3.15"
-  resolved "https://registry.npmjs.org/@mantine/core/-/core-8.3.15.tgz#0b58ef1d75ed562d9e2c3c4e04795f77a8bb00c7"
-  integrity sha512-wBn/GogB4x7a2Uj7Ztt3amRaApjED+9XqfE4wyCLh88R7KV55k9vnTdCx+irI/GLOOu9tXNUGm3a4t5sTajwkQ==
+"@mantine/core@^8.3.16":
+  version "8.3.16"
+  resolved "https://registry.npmjs.org/@mantine/core/-/core-8.3.16.tgz#dff9bf1823dc694d001b7713c358328fdcc037aa"
+  integrity sha512-YgmoYrb0I9UUDYfs9OVLvBUTgkA5vn5KZTfxlOaOSFxzhyYjrtwMQK+P7fvEIkenNQbbikhelj/IRcC2yNQyFQ==
   dependencies:
     "@floating-ui/react" "^0.27.16"
     clsx "^2.1.1"
@@ -211,36 +211,43 @@
     react-textarea-autosize "8.5.9"
     type-fest "^4.41.0"
 
-"@mantine/form@^8.3.15":
-  version "8.3.15"
-  resolved "https://registry.npmjs.org/@mantine/form/-/form-8.3.15.tgz#8a01d18d60440126547f9bb6c8d974cab107b448"
-  integrity sha512-A6S70KSPjkKkuXxplqTQbPJZ/pkVfJXU/I5bnsSpGacTJxUlU6KR9Ez+Wwea+NHsupl2MHks98oC0f/UiqWbwQ==
+"@mantine/dates@^8.3.16":
+  version "8.3.16"
+  resolved "https://registry.npmjs.org/@mantine/dates/-/dates-8.3.16.tgz#66fd8ba5487fdf37304623e9a3d34622d36145f2"
+  integrity sha512-oZhOS4j5cMsyY3rZtkfCgKxu67Aptkav6Z7Tqa1hHpAdJ2XNse/Bl7hgqsdaTaUY8L5zpeTWaptBe1053Zgj8A==
+  dependencies:
+    clsx "^2.1.1"
+
+"@mantine/form@^8.3.16":
+  version "8.3.16"
+  resolved "https://registry.npmjs.org/@mantine/form/-/form-8.3.16.tgz#c89cd462a895f4e2c81700f9565c06c93bb39ccc"
+  integrity sha512-yx7HXXdbS/Qmps7NmVGHtmnqembCcDg7W1ijxG6w4kQLntD//Co20B3DSrMXmQ3o14p779ayzTmHkMd+dP4QbA==
   dependencies:
     fast-deep-equal "^3.1.3"
     klona "^2.0.6"
 
-"@mantine/hooks@^8.3.15":
-  version "8.3.15"
-  resolved "https://registry.npmjs.org/@mantine/hooks/-/hooks-8.3.15.tgz#fb20e2337b5182428d46aede85614d9c235f3efa"
-  integrity sha512-AUSnpUlzttHzJht3CJ1YWi16iy6NWRwtyWO5RLGHHsmiW05DyG0qOPKF8+R5dLHuOCnl3XOu4roI2Y1ku9U04Q==
+"@mantine/hooks@^8.3.16":
+  version "8.3.16"
+  resolved "https://registry.npmjs.org/@mantine/hooks/-/hooks-8.3.16.tgz#39d7558cad8d69191881c34ea9a7f86345666e6f"
+  integrity sha512-DthR8/KDCLIip3KoXyn370HEiKxiOwH+ZeXs1UoSv/e58xR88OE85Slyb5b5pRsDa4ndYnES+j9wyRyrRXLWfg==
 
-"@mantine/modals@^8.3.15":
-  version "8.3.15"
-  resolved "https://registry.npmjs.org/@mantine/modals/-/modals-8.3.15.tgz#eaffc6a4fcbd5d4ea58573dff1f127e50dbab03c"
-  integrity sha512-2071LNa203BX0S/rgn0Q0v9H5ou+3qM4O+6tzYRqiNweQLWDUyIwQRjcWTm64X7qORRWl5IFzgp5hySLhCFfGw==
+"@mantine/modals@^8.3.16":
+  version "8.3.16"
+  resolved "https://registry.npmjs.org/@mantine/modals/-/modals-8.3.16.tgz#f20d5bc78e50aa0538288e4d46dcaba62cdbf8dd"
+  integrity sha512-5wRlcoIdMtxOyHPjwa/ibPndv+PwotdaX6T0W9gqEST3vOSndGD6+FwKJj8kNomyeeDISiMMWBV5QQGwC7QvTA==
 
-"@mantine/notifications@^8.3.15":
-  version "8.3.15"
-  resolved "https://registry.npmjs.org/@mantine/notifications/-/notifications-8.3.15.tgz#2f52b09a26efcd081026d5b37d95d0e0bf6c9c90"
-  integrity sha512-CJGSv8oeLWyJIVPninU7Ud6vV6/UJKWZJwRGBNg2K0Ak0U0coFN3gW3H6G1Mh2zllNxb3K4fpMJNz4Iy0sCBFw==
+"@mantine/notifications@^8.3.16":
+  version "8.3.16"
+  resolved "https://registry.npmjs.org/@mantine/notifications/-/notifications-8.3.16.tgz#9d878405c02f7c87133b5331d439e728cdeb0cd8"
+  integrity sha512-FqUgWYlBGwpwDAh4q5K6xO/cGQpU+jqdPpQOVy12881vZaJsCk4XWmDzL7BwY6cS15nxU26DBokixZSrUKPTng==
   dependencies:
-    "@mantine/store" "8.3.15"
+    "@mantine/store" "8.3.16"
     react-transition-group "4.4.5"
 
-"@mantine/store@8.3.15":
-  version "8.3.15"
-  resolved "https://registry.npmjs.org/@mantine/store/-/store-8.3.15.tgz#8a7f96b18869c6893ece1a25c57d6a614622b6ce"
-  integrity sha512-wdx91a73dM2G02YPIZ9i5UXPWfvjdf3qPAwSGnSsBFQg5uM/5CcPAOOQwlYIkvX1edUA5BFOk/4IjpEXSYUDeQ==
+"@mantine/store@8.3.16":
+  version "8.3.16"
+  resolved "https://registry.npmjs.org/@mantine/store/-/store-8.3.16.tgz#462816a9fbebfb7709af358cce0007ff4a146573"
+  integrity sha512-BLbAw5z3aAxO82LwICw6FEHq53dgn7CqKYYiwr+Gm2nHYlyvwg15q9ByfM44LiKY7R0YpDPHfCJcJP37MHHDSQ==
 
 "@rollup/rollup-android-arm-eabi@4.57.1":
   version "4.57.1"
@@ -425,6 +432,11 @@ csstype@^3.0.2:
   version "3.2.3"
   resolved "https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz#ec48c0f3e993e50648c86da559e2610995cf989a"
   integrity sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==
+
+dayjs@^1.11.20:
+  version "1.11.20"
+  resolved "https://registry.npmjs.org/dayjs/-/dayjs-1.11.20.tgz#88d919fd639dc991415da5f4cb6f1b6650811938"
+  integrity sha512-YbwwqR/uYpeoP4pu043q+LTDLFBLApUP6VxRihdfNTqu4ubqMlGDLd6ErXhEgsyvY0K6nCs7nggYumAN+9uEuQ==
 
 debug@^4.4.0:
   version "4.4.3"

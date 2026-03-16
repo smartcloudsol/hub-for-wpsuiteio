@@ -22,8 +22,8 @@ if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'model.php')) {
 }
 
 const VERSION_WEBCRYPTO = '1.1.0';
-const VERSION_AMPLIFY = '1.1.1';
-const VERSION_MANTINE = '1.0.4';
+const VERSION_AMPLIFY = '1.1.2';
+const VERSION_MANTINE = '1.0.5';
 
 class HubAdmin
 {
@@ -36,6 +36,10 @@ class HubAdmin
             lastUpdate: 0,
             subscriber: false,
             siteKey: '',
+            reCaptchaPublicKey: '',
+            useRecaptchaNet: false,
+            useRecaptchaEnterprise: false,
+            renderRecaptchaProvider: true,
         );
         try {
             $this->siteSettings = get_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings', $defaultSiteSettings);
@@ -44,6 +48,10 @@ class HubAdmin
             $this->siteSettings->lastUpdate ??= 0;
             $this->siteSettings->subscriber ??= false;
             $this->siteSettings->siteKey ??= '';
+            $this->siteSettings->reCaptchaPublicKey ??= '';
+            $this->siteSettings->useRecaptchaNet ??= false;
+            $this->siteSettings->useRecaptchaEnterprise ??= false;
+            $this->siteSettings->renderRecaptchaProvider ??= true;
         } catch (TypeError | Exception $e) {
             $this->siteSettings = $defaultSiteSettings;
         }
@@ -64,6 +72,30 @@ class HubAdmin
      */
     public function enqueueScripts(): void
     {
+        wp_register_script(
+            'smartcloud-wpsuite-webcrypto-vendor',
+            SMARTCLOUD_WPSUITE_URL . 'assets/js/webcrypto-vendor.min.js',
+            array(),
+            \SmartCloud\WPSuite\Hub\VERSION_WEBCRYPTO,
+            false
+        );
+
+        wp_register_script(
+            'smartcloud-wpsuite-amplify-vendor',
+            SMARTCLOUD_WPSUITE_URL . 'assets/js/amplify-vendor.min.js',
+            array("react", "react-dom"),
+            \SmartCloud\WPSuite\Hub\VERSION_AMPLIFY,
+            false
+        );
+
+        wp_register_script(
+            'smartcloud-wpsuite-mantine-vendor',
+            SMARTCLOUD_WPSUITE_URL . 'assets/js/mantine-vendor.min.js',
+            array("react", "react-dom"),
+            \SmartCloud\WPSuite\Hub\VERSION_MANTINE,
+            false
+        );
+
         $upload_info = wp_upload_dir();
         $data = array(
             'restUrl' => rest_url(SMARTCLOUD_WPSUITE_SLUG . '/v1'),
@@ -75,6 +107,10 @@ class HubAdmin
                 'siteKey' => is_admin() ? $this->siteSettings->siteKey : '',
                 'lastUpdate' => $this->siteSettings->lastUpdate,
                 'subscriber' => $this->siteSettings->subscriber,
+                'reCaptchaPublicKey' => $this->siteSettings->reCaptchaPublicKey,
+                'useRecaptchaNet' => $this->siteSettings->useRecaptchaNet,
+                'useRecaptchaEnterprise' => $this->siteSettings->useRecaptchaEnterprise,
+                'renderRecaptchaProvider' => $this->siteSettings->renderRecaptchaProvider,
                 'hubInstalled' => true,
             ),
         );
@@ -90,7 +126,11 @@ Object.assign(__wpsuiteGlobal.WpSuite, ' . wp_json_encode($data) . ');
 var WpSuite = __wpsuiteGlobal.WpSuite;
 ';
 
-        wp_enqueue_script('smartcloud-wpsuite-main-script', SMARTCLOUD_WPSUITE_URL . 'wpsuiteio.js', false, SMARTCLOUD_WPSUITE_VERSION, false);
+        $main_script_asset = array();
+        if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'main.asset.php')) {
+            $main_script_asset = require(SMARTCLOUD_WPSUITE_PATH . 'main.asset.php');
+        }
+        wp_enqueue_script('smartcloud-wpsuite-main-script', SMARTCLOUD_WPSUITE_URL . 'main.js', $main_script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, false);
 
         wp_add_inline_script('smartcloud-wpsuite-main-script', $js, 'before');
     }
@@ -100,14 +140,13 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         return 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjxzdmcgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2ZXJzaW9uPSIxLjAiIHdpZHRoPSIyMHB4IiBoZWlnaHQ9IjIwcHgiIHZpZXdCb3g9IjAgMCAyNzguMDAwMDAwIDI1NC4wMDAwMDAiIHByZXNlcnZlQXNwZWN0UmF0aW89InhNaWRZTWlkIG1lZXQiPgogIDxkZWZzPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJncmVlbiIgZ3JhZGllbnRUcmFuc2Zvcm09InJvdGF0ZSg0NSkiPgogICAgICA8c3RvcCBvZmZzZXQ9IjUwJSIgc3RvcC1jb2xvcj0iIzJBQ0Q0RSI+PC9zdG9wPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM0RUZGQUEiPjwvc3RvcD4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDxzdHlsZSB0eXBlPSJ0ZXh0L2NzcyI+CgkJLnBhdGh7ZmlsbDp1cmwoJyNncmVlbicpO30KCTwvc3R5bGU+CiAgPGcgY2xhc3M9InBhdGgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAuMDAwMDAwLDI1NC4wMDAwMDApIHNjYWxlKDAuMTAwMDAwLC0wLjEwMDAwMCkiIGZpbGw9IiMwMDAwMDAiIHN0cm9rZT0ibm9uZSI+CiAgICA8cGF0aCBkPSJNNDk1IDI1MDQgYy0xODQgLTY1IC0zMzEgLTE4NyAtNDA0IC0zMzUgLTUyIC0xMDUgLTcyIC0yMDMgLTczIC0zNDQgIDAgLTg4IDQgLTEyMyAyMiAtMTc1IDQxIC0xMjIgODkgLTIwMCAxODAgLTI5MSA3MSAtNzIgMTAxIC05NCAxODQgLTEzNSBsOTggIC00OSAxNTIgLTYgYzgzIC00IDQ1OSAtMTEgODM2IC0xNCA2NDMgLTcgNjg5IC05IDc0NSAtMjcgNzkgLTI2IDEzMyAtNTkgMTg4ICAtMTE0IDU4IC02MCA5NCAtMTMxIDExNSAtMjMyIDE5IC05MSAxMCAtMTcyIC0yOSAtMjc2IC00MCAtMTEwIC0xNjkgLTIxNyAgLTMwMyAtMjUyIC00MSAtMTEgLTIxNCAtMTQgLTg5NyAtMTQgbC04NDYgMCAtNjEgMzEgYy05MCA0NCAtMTQwIDExNCAtMTU3ICAyMTUgLTUgMzEgLTIgNDUgMTIgNjIgbDE4IDIxIDkxOSA3IDkxOSA3IDM5IDM1IGMyMSAxOSA0MSA0NSA0NCA1NyA3IDI3IC0xNCAgNzEgLTQ4IDEwMSAtMjMgMjEgLTMxIDIyIC01NDkgMjcgLTI5MCAzIC03NjUgMyAtMTA1OCAwIGwtNTMxIC02IDAgLTE1NyBjMCAgLTE4OSA5IC0yNDIgNTcgLTM0MCA2NCAtMTMyIDE4MyAtMjMwIDMzMiAtMjc0IDQ4IC0xNCAxNTIgLTE2IDkxNSAtMTYgOTY0IDAgIDkzOCAtMSAxMDg0IDcxIDY1IDMyIDEwMiA1OSAxNjUgMTIyIDE0NyAxNDcgMTk3IDI2MyAyMDUgNDc0IDQgMTE3IDIgMTM5IC0xOCAgMjAwIC04NCAyNTQgLTI1MiA0MTYgLTUwMCA0ODIgLTcwIDE4IC0xMjMgMjAgLTczMCAyNiAtMzYwIDQgLTcyNSAxMCAtODEwIDE0ICAtMTQ5IDYgLTE1OSA4IC0yMjEgMzggLTE0OSA3NCAtMjQ5IDIzNyAtMjQ5IDQwNiAwIDE4NSA5MSAzMzYgMjQ4IDQxMyA1NCAyNiAgNjcgMjggMjUyIDM1IDEwNyA0IDUwNiA4IDg4NSA4IGw2OTAgMSA2MCAtMjkgYzcxIC0zNCAxMTYgLTc5IDE0NCAtMTQxIDMwICAtNjkgMzQgLTExMSAxNCAtMTM3IGwtMTggLTIyIC05MTUgLTcgYy0xMDE3IC03IC05NTcgLTMgLTk5MCAtNzYgLTIxIC00OCAtMTMgIC04OSAyNSAtMTI4IGwyNSAtMjUgMTA0NCAwIGM1NzUgMCAxMDQ4IDQgMTA1MyA4IDQgNSA5IDg4IDExIDE4NSA0IDE3MSAzIDE3OSAgLTIyIDI0NyAtMzUgOTAgLTc0IDE1MSAtMTM5IDIxMiAtNjQgNjAgLTEyMiA5NSAtMjA2IDEyMiAtNjMgMjEgLTc5IDIxIC05NTAgIDIxIGwtODg2IC0xIC03MCAtMjV6Ij48L3BhdGg+CiAgPC9nPgo8L3N2Zz4K';
     }
 
-    public function enqueueAdminScripts($connect_suffix/*, $diagnostics_suffix*/)
+    public function enqueueAdminScripts($connect_suffix, $settings_suffix = null)
     {
         $GLOBALS['smartcloud_wpsuite_menu_parent'] = SMARTCLOUD_WPSUITE_SLUG;
         do_action(SMARTCLOUD_WPSUITE_READY_HOOK, SMARTCLOUD_WPSUITE_SLUG);
 
-        //add_action('admin_enqueue_scripts', function ($hook) use ($connect_suffix, $diagnostics_suffix) {
-        add_action('admin_enqueue_scripts', function ($hook) use ($connect_suffix) {
-            if ($hook !== $connect_suffix /*&& $hook !== $diagnostics_suffix*/) {
+        add_action('admin_enqueue_scripts', function ($hook) use ($connect_suffix, $settings_suffix) {
+            if ($hook !== $connect_suffix && $hook !== $settings_suffix) {
                 return;
             }
 
@@ -120,24 +159,24 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             );
 
             $script_asset = array();
-            if (file_exists(SMARTCLOUD_WPSUITE_PATH . 'index.asset.php')) {
-                $script_asset = require_once(SMARTCLOUD_WPSUITE_PATH . 'index.asset.php');
+            if (file_exists(SMARTCLOUD_WPSUITE_PATH . 'admin.asset.php')) {
+                $script_asset = require_once(SMARTCLOUD_WPSUITE_PATH . 'admin.asset.php');
             }
             $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-wpsuite-mantine-vendor'));
-            wp_enqueue_script('smartcloud-wpsuite-admin-script', SMARTCLOUD_WPSUITE_URL . 'index.js', $script_asset['dependencies'], SMARTCLOUD_WPSUITE_VERSION, true);
+            wp_enqueue_script('smartcloud-wpsuite-admin-script', SMARTCLOUD_WPSUITE_URL . 'admin.js', $script_asset['dependencies'], SMARTCLOUD_WPSUITE_VERSION, true);
 
             if ($hook === $connect_suffix) {
                 $page = 'connect';
-                /*} elseif ($hook === $diagnostics_suffix) {
-                    $page = 'diagnostics';*/
+            } elseif ($hook === $settings_suffix) {
+                $page = 'settings';
             } else {
                 $page = '';
             }
             $js = '__wpsuiteGlobal.WpSuite.view = ' . wp_json_encode($page) . ';';
             wp_add_inline_script('smartcloud-wpsuite-admin-script', $js, 'before');
 
-            wp_enqueue_style('smartcloud-wpsuite-admin-style', SMARTCLOUD_WPSUITE_URL . 'index.css', array(), SMARTCLOUD_WPSUITE_VERSION);
-            wp_enqueue_style('smartcloud-wpsuite-mantine-vendor-style', SMARTCLOUD_WPSUITE_URL . '../assets/css/mantine-vendor.css', array(), VERSION_MANTINE);
+            wp_enqueue_style('smartcloud-wpsuite-admin-style', SMARTCLOUD_WPSUITE_URL . 'admin.css', array(), SMARTCLOUD_WPSUITE_VERSION);
+            wp_enqueue_style('smartcloud-wpsuite-mantine-vendor-style', SMARTCLOUD_WPSUITE_URL . 'assets/css/mantine-vendor.css', array(), VERSION_MANTINE);
         });
     }
 
@@ -224,7 +263,11 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 $settings_param->siteId,
                 $settings_param->lastUpdate,
                 $settings_param->subscriber,
-                $settings_param->siteKey
+                $settings_param->siteKey,
+                $settings_param->reCaptchaPublicKey ?? '',
+                $settings_param->useRecaptchaNet ?? false,
+                $settings_param->useRecaptchaEnterprise ?? false,
+                $settings_param->renderRecaptchaProvider ?? true
             );
 
             update_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings', $this->siteSettings);
@@ -235,8 +278,12 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 lastUpdate: 0,
                 subscriber: false,
                 siteKey: '',
+                reCaptchaPublicKey: $settings_param->reCaptchaPublicKey ?? '',
+                useRecaptchaNet: $settings_param->useRecaptchaNet ?? false,
+                useRecaptchaEnterprise: $settings_param->useRecaptchaEnterprise ?? false,
+                renderRecaptchaProvider: $settings_param->renderRecaptchaProvider ?? true
             );
-            delete_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings');
+            update_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings', $this->siteSettings);
         }
 
         if ($settings_param->subscriber) {

@@ -1,17 +1,19 @@
 {
   "name": "@smart-cloud/wpsuite-mantine-vendor",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "main": "dist/mantine-vendor.min.js",
   "scripts": {
     "build": "tsup --minify"
   },
   "dependencies": {
-    "@mantine/core": "^8.3.15",
-    "@mantine/form": "^8.3.15",
-    "@mantine/hooks": "^8.3.15",
-    "@mantine/modals": "^8.3.15",
-    "@mantine/notifications": "^8.3.15"
+    "@mantine/core": "^8.3.16",
+    "@mantine/dates": "^8.3.16",
+    "@mantine/form": "^8.3.16",
+    "@mantine/hooks": "^8.3.16",
+    "@mantine/modals": "^8.3.16",
+    "@mantine/notifications": "^8.3.16",
+    "dayjs": "^1.11.20"
   },
   "devDependencies": {
     "esbuild-plugin-external-global": "^1.0.1",

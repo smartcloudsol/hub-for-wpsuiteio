@@ -13,7 +13,7 @@ declare function attachDefaultPluginRuntime<T extends WpSuitePluginBase>(plugin:
 declare global {
     var WpSuite: WpSuiteGlobal | undefined;
 }
-type WpSuiteView = "connect" | "diagnostics";
+type WpSuiteView = "connect" | "settings";
 type PluginStatus = "unavailable" | "initializing" | "available" | "error";
 type PluginAvailability = Omit<PluginStatus, "initializing">;
 interface WpSuiteEvents {
@@ -52,6 +52,10 @@ interface SiteSettings {
     lastUpdate?: number;
     subscriber?: boolean;
     siteKey?: string;
+    reCaptchaPublicKey?: string;
+    useRecaptchaNet?: boolean;
+    useRecaptchaEnterprise?: boolean;
+    renderRecaptchaProvider?: boolean;
 }
 type SubscriptionType = "PROFESSIONAL" | "AGENCY";
 declare const getConfig: (plugin: string) => Promise<Record<string, unknown> | null>;

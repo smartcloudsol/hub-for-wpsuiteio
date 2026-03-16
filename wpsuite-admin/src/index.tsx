@@ -31,15 +31,15 @@ const queryClient = new QueryClient({
 const wpsuite = getWpSuite();
 const view = wpsuite?.view ?? "connect";
 const root = createRoot(document.getElementById("smartcloud-wpsuite-admin")!);
-if (view === "diagnostics") {
-  const Diagnostics = await import("./diagnostics");
+if (view === "settings") {
+  const Settings = await import("./settings");
   root.render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <MantineProvider theme={theme}>
           <Notifications position="top-right" zIndex={100002} />
           <ModalsProvider modalProps={{ zIndex: 100001 }}>
-            <Diagnostics.default />
+            <Settings.default />
           </ModalsProvider>
         </MantineProvider>
       </QueryClientProvider>

@@ -16,3 +16,7 @@ input[readonly].mantine-Select-input {
     padding-right: 10px;
   }
 }
+
+.highlighted-doc-item {
+  background-color: rgba(255, 255, 0, 0.3);
+}

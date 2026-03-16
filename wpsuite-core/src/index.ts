@@ -2,7 +2,7 @@ declare global {
   var WpSuite: WpSuiteGlobal | undefined;
 }
 
-export type WpSuiteView = "connect" | "diagnostics";
+export type WpSuiteView = "connect" | "settings";
 
 export type PluginStatus =
   | "unavailable"
@@ -72,6 +72,10 @@ export interface SiteSettings {
   lastUpdate?: number;
   subscriber?: boolean;
   siteKey?: string;
+  reCaptchaPublicKey?: string;
+  useRecaptchaNet?: boolean;
+  useRecaptchaEnterprise?: boolean;
+  renderRecaptchaProvider?: boolean;
 }
 
 export type SubscriptionType = "PROFESSIONAL" | "AGENCY";
