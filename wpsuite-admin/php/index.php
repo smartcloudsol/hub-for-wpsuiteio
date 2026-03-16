@@ -130,7 +130,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'main.asset.php')) {
             $main_script_asset = require(SMARTCLOUD_WPSUITE_PATH . 'main.asset.php');
         }
-        wp_enqueue_script('smartcloud-wpsuite-main-script', SMARTCLOUD_WPSUITE_URL . 'main.js', $main_script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, false);
+        wp_enqueue_script('smartcloud-wpsuite-main-script', SMARTCLOUD_WPSUITE_URL . 'main.js', $main_script_asset['dependencies'], SMARTCLOUD_WPSUITE_VERSION, false);
 
         wp_add_inline_script('smartcloud-wpsuite-main-script', $js, 'before');
     }
