@@ -77,7 +77,7 @@ class HubAdmin
             SMARTCLOUD_WPSUITE_URL . 'assets/js/webcrypto-vendor.min.js',
             array(),
             \SmartCloud\WPSuite\Hub\VERSION_WEBCRYPTO,
-            false
+            array('strategy' => 'defer')
         );
 
         wp_register_script(
@@ -85,7 +85,7 @@ class HubAdmin
             SMARTCLOUD_WPSUITE_URL . 'assets/js/amplify-vendor.min.js',
             array("react", "react-dom"),
             \SmartCloud\WPSuite\Hub\VERSION_AMPLIFY,
-            false
+            array('strategy' => 'defer')
         );
 
         wp_register_script(
@@ -93,7 +93,7 @@ class HubAdmin
             SMARTCLOUD_WPSUITE_URL . 'assets/js/mantine-vendor.min.js',
             array("react", "react-dom"),
             \SmartCloud\WPSuite\Hub\VERSION_MANTINE,
-            false
+            array('strategy' => 'defer')
         );
 
         $upload_info = wp_upload_dir();
@@ -126,13 +126,24 @@ Object.assign(__wpsuiteGlobal.WpSuite, ' . wp_json_encode($data) . ');
 var WpSuite = __wpsuiteGlobal.WpSuite;
 ';
 
-        $main_script_asset = array();
-        if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'main.asset.php')) {
-            $main_script_asset = require(SMARTCLOUD_WPSUITE_PATH . 'main.asset.php');
-        }
-        wp_enqueue_script('smartcloud-wpsuite-main-script', SMARTCLOUD_WPSUITE_URL . 'main.js', $main_script_asset['dependencies'], SMARTCLOUD_WPSUITE_VERSION, false);
+        $main_script_dependencies = $this->getAssetDependencies(SMARTCLOUD_WPSUITE_PATH . 'main.asset.php');
+        wp_enqueue_script('smartcloud-wpsuite-main-script', SMARTCLOUD_WPSUITE_URL . 'main.js', $main_script_dependencies, SMARTCLOUD_WPSUITE_VERSION, array('strategy' => 'defer'));
 
         wp_add_inline_script('smartcloud-wpsuite-main-script', $js, 'before');
+    }
+
+    private function getAssetDependencies(string $asset_path): array
+    {
+        if (!file_exists($asset_path)) {
+            return array();
+        }
+
+        $asset = require($asset_path);
+        if (!is_array($asset)) {
+            return array();
+        }
+
+        return is_array($asset['dependencies'] ?? null) ? $asset['dependencies'] : array();
     }
 
     public function getIconUrl()
@@ -152,18 +163,17 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
 
             wp_register_script(
                 'smartcloud-wpsuite-mantine-vendor',
-                plugins_url('assets/js/wpsuite-mantine-vendor.min.js', __FILE__),
+                SMARTCLOUD_WPSUITE_URL . 'assets/js/mantine-vendor.min.js',
                 array(),
                 VERSION_MANTINE,
-                false
+                array('strategy' => 'defer')
             );
 
-            $script_asset = array();
-            if (file_exists(SMARTCLOUD_WPSUITE_PATH . 'admin.asset.php')) {
-                $script_asset = require_once(SMARTCLOUD_WPSUITE_PATH . 'admin.asset.php');
-            }
-            $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-wpsuite-mantine-vendor'));
-            wp_enqueue_script('smartcloud-wpsuite-admin-script', SMARTCLOUD_WPSUITE_URL . 'admin.js', $script_asset['dependencies'], SMARTCLOUD_WPSUITE_VERSION, true);
+            $script_dependencies = array_merge(
+                $this->getAssetDependencies(SMARTCLOUD_WPSUITE_PATH . 'admin.asset.php'),
+                array('smartcloud-wpsuite-mantine-vendor')
+            );
+            wp_enqueue_script('smartcloud-wpsuite-admin-script', SMARTCLOUD_WPSUITE_URL . 'admin.js', array_values(array_unique($script_dependencies)), SMARTCLOUD_WPSUITE_VERSION, array('strategy' => 'defer'));
 
             if ($hook === $connect_suffix) {
                 $page = 'connect';
