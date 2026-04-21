@@ -31,6 +31,23 @@ type RecaptchaSettings = {
   renderRecaptchaProvider: boolean;
 };
 
+type InfoLabelProps = {
+  text: string;
+  scrollToId: string;
+  onOpen: (scrollToId: string) => void;
+};
+
+function InfoLabel({ text, scrollToId, onOpen }: InfoLabelProps) {
+  return (
+    <Group align="center" gap="0.25rem">
+      {text}
+      <ActionIcon variant="subtle" onClick={() => onOpen(scrollToId)} size="sm">
+        <IconHelp size={14} />
+      </ActionIcon>
+    </Group>
+  );
+}
+
 export default function SettingsScreen() {
   const [settings, setSettings] = useState<RecaptchaSettings>({
     reCaptchaPublicKey: wpsuite?.siteSettings?.reCaptchaPublicKey || "",
@@ -85,22 +102,11 @@ export default function SettingsScreen() {
     }
   }, [settings]);
 
-  const InfoLabelComponent = useCallback(
-    ({ text, scrollToId }: { text: string; scrollToId: string }) => (
-      <Group align="center" gap="0.25rem">
-        {text}
-        <ActionIcon
-          variant="subtle"
-          onClick={() => {
-            setScrollToId(scrollToId);
-            open();
-          }}
-          size="sm"
-        >
-          <IconHelp size={14} />
-        </ActionIcon>
-      </Group>
-    ),
+  const openInfo = useCallback(
+    (targetScrollToId: string) => {
+      setScrollToId(targetScrollToId);
+      open();
+    },
     [open],
   );
 
@@ -133,9 +139,10 @@ export default function SettingsScreen() {
           <TextInput
             disabled={saving}
             label={
-              <InfoLabelComponent
+              <InfoLabel
                 text="Google reCAPTCHA (v3) Site Key"
                 scrollToId="recaptcha-site-key"
+                onOpen={openInfo}
               />
             }
             description="Create the key in your reCAPTCHA project, then paste it here. Required for components that use grecaptcha.execute() (mandatory for Enterprise)."
@@ -151,9 +158,10 @@ export default function SettingsScreen() {
           <Checkbox
             disabled={saving}
             label={
-              <InfoLabelComponent
+              <InfoLabel
                 text="Use reCAPTCHA Enterprise"
                 scrollToId="use-recaptcha-enterprise"
+                onOpen={openInfo}
               />
             }
             description="Enable if you're using Google reCAPTCHA Enterprise instead of the standard version. Components need this setting even if provider rendering is disabled."
@@ -169,9 +177,10 @@ export default function SettingsScreen() {
           <Checkbox
             disabled={saving}
             label={
-              <InfoLabelComponent
+              <InfoLabel
                 text="Render reCAPTCHA Provider"
                 scrollToId="render-recaptcha-provider"
+                onOpen={openInfo}
               />
             }
             description="Enable this to automatically load the Google reCAPTCHA script. Disable if you already have a site-wide reCAPTCHA script loaded."
@@ -187,9 +196,10 @@ export default function SettingsScreen() {
           <Checkbox
             disabled={saving || !settings.renderRecaptchaProvider}
             label={
-              <InfoLabelComponent
+              <InfoLabel
                 text="Use recaptcha.net"
                 scrollToId="use-recaptcha-net"
+                onOpen={openInfo}
               />
             }
             description="Enable to load reCAPTCHA from recaptcha.net instead of google.com (useful in regions where Google services are restricted)."

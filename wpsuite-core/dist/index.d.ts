@@ -1,26 +1,14 @@
-type RecaptchaFunction = (reCaptchaSiteKey: string, options: {
-    action: string;
-}) => Promise<string | undefined>;
-declare const getRecaptcha: (useRecaptchaEnterprise: boolean) => Promise<{
-    execute: RecaptchaFunction | undefined;
-}>;
-
-/** Attaches the default runtime functions to a plugin object */
-declare function attachDefaultPluginRuntime<T extends WpSuitePluginBase>(plugin: T, opts?: {
-    timeoutMs?: number;
-}): T;
-
 declare global {
     var WpSuite: WpSuiteGlobal | undefined;
 }
-type WpSuiteView = "connect" | "settings";
-type PluginStatus = "unavailable" | "initializing" | "available" | "error";
-type PluginAvailability = Omit<PluginStatus, "initializing">;
-interface WpSuiteEvents {
+export type WpSuiteView = "connect" | "settings";
+export type PluginStatus = "unavailable" | "initializing" | "available" | "error";
+export type PluginAvailability = Omit<PluginStatus, "initializing">;
+export interface WpSuiteEvents {
     emit(type: string, detail?: unknown): void;
     on(type: string, cb: (ev: Event) => void, opts?: AddEventListenerOptions): void;
 }
-interface WpSuitePluginBase {
+export interface WpSuitePluginBase {
     key: string;
     version?: string;
     status?: PluginStatus;
@@ -32,8 +20,8 @@ interface WpSuitePluginBase {
  * - contains typed, named plugins,
  * - and allows anything else (Record<string, WpSuitePluginBase | undefined>).
  */
-type WpSuitePluginRegistry = Record<string, WpSuitePluginBase | undefined>;
-interface WpSuiteGlobal {
+export type WpSuitePluginRegistry = Record<string, WpSuitePluginBase | undefined>;
+export interface WpSuiteGlobal {
     siteSettings: SiteSettings;
     nonce: string;
     restUrl: string;
@@ -42,11 +30,12 @@ interface WpSuiteGlobal {
     plugins: WpSuitePluginRegistry;
     events?: WpSuiteEvents;
 }
-declare function getWpSuite(): WpSuiteGlobal | undefined;
-declare function getPlugin<K extends string>(key: K): WpSuitePluginBase | undefined;
-
-declare const TEXT_DOMAIN = "smartcloud-wpsuite";
-interface SiteSettings {
+export declare function getWpSuite(): WpSuiteGlobal | undefined;
+export declare function getPlugin<K extends string>(key: K): WpSuitePluginBase | undefined;
+export { getRecaptcha, type RecaptchaFunction } from "./utils";
+export { attachDefaultPluginRuntime } from "./runtime";
+export declare const TEXT_DOMAIN = "smartcloud-wpsuite";
+export interface SiteSettings {
     accountId?: string;
     siteId?: string;
     lastUpdate?: number;
@@ -57,7 +46,5 @@ interface SiteSettings {
     useRecaptchaEnterprise?: boolean;
     renderRecaptchaProvider?: boolean;
 }
-type SubscriptionType = "PROFESSIONAL" | "AGENCY";
-declare const getConfig: (plugin: string) => Promise<Record<string, unknown> | null>;
-
-export { type PluginAvailability, type PluginStatus, type RecaptchaFunction, type SiteSettings, type SubscriptionType, TEXT_DOMAIN, type WpSuiteEvents, type WpSuiteGlobal, type WpSuitePluginBase, type WpSuitePluginRegistry, type WpSuiteView, attachDefaultPluginRuntime, getConfig, getPlugin, getRecaptcha, getWpSuite };
+export type SubscriptionType = "PROFESSIONAL" | "AGENCY";
+export declare const getConfig: (plugin: string) => Promise<Record<string, unknown> | null>;

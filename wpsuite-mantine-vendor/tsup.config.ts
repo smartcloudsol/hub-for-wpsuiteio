@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { defineConfig } from "tsup";
 import externalGlobal from "esbuild-plugin-external-global";
 import fs from "fs";

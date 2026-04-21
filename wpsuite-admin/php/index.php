@@ -12,7 +12,6 @@ use Exception;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
-use WP_Filesystem_Direct;
 
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly.
@@ -21,9 +20,9 @@ if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'model.php')) {
     require_once SMARTCLOUD_WPSUITE_PATH . 'model.php';
 }
 
-const VERSION_WEBCRYPTO = '1.1.0';
-const VERSION_AMPLIFY = '1.1.2';
-const VERSION_MANTINE = '1.0.5';
+const VERSION_WEBCRYPTO = '1.1.2';
+const VERSION_AMPLIFY = '1.1.3';
+const VERSION_MANTINE = '1.0.6';
 
 class HubAdmin
 {

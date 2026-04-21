@@ -1,3 +1,5 @@
+/// <reference path="./vendor-modules.d.ts" />
+
 import * as asmCryptoNS from "asmcrypto.js";
 import * as ellipticNS from "elliptic";
 import * as joseNS from "jose";
