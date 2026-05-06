@@ -20,8 +20,8 @@ if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'model.php')) {
     require_once SMARTCLOUD_WPSUITE_PATH . 'model.php';
 }
 
-const VERSION_WEBCRYPTO = '1.1.2';
-const VERSION_AMPLIFY = '1.1.3';
+const VERSION_WEBCRYPTO = '1.1.3';
+const VERSION_AMPLIFY = '1.1.4';
 const VERSION_MANTINE = '1.0.6';
 
 class HubAdmin
