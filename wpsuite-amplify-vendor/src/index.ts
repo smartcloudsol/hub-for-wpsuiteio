@@ -29,7 +29,7 @@ export {
   type LoginMechanism,
   type SignUpAttribute,
   type SocialProvider,
-} from "@aws-amplify/ui";
+} from "@smart-cloud/aws-amplify-ui";
 export {
   countries,
   defaultDarkModeOverride,
@@ -50,4 +50,4 @@ export {
   type ColorMode,
   type CustomProvider,
   type Direction,
-} from "@aws-amplify/ui-react";
+} from "@smart-cloud/aws-amplify-ui-react";

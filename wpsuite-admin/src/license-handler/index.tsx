@@ -1,5 +1,5 @@
-import { Authenticator } from "@aws-amplify/ui-react";
-import "@aws-amplify/ui-react/styles.css";
+import { Authenticator } from "@smart-cloud/aws-amplify-ui-react";
+import "@smart-cloud/aws-amplify-ui-react/styles.css";
 import { Group, Skeleton } from "@mantine/core";
 import {
   useEffect,
@@ -26,7 +26,7 @@ export interface LicenseHandlerProps extends PropsWithChildren {
 }
 
 export const LicenseHandler: FunctionComponent<LicenseHandlerProps> = (
-  props: LicenseHandlerProps
+  props: LicenseHandlerProps,
 ) => {
   useEffect(() => {
     const script = document.createElement("script");

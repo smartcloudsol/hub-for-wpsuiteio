@@ -4,7 +4,7 @@ import {
   Authenticator,
   Heading,
   useAuthenticator,
-} from "@aws-amplify/ui-react";
+} from "@smart-cloud/aws-amplify-ui-react";
 import {
   ActionIcon,
   Alert,
