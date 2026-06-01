@@ -41,6 +41,7 @@ export interface SiteSettings {
     lastUpdate?: number;
     subscriber?: boolean;
     siteKey?: string;
+    wpsuiteThemeCss?: string;
     reCaptchaPublicKey?: string;
     useRecaptchaNet?: boolean;
     useRecaptchaEnterprise?: boolean;

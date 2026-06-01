@@ -2,7 +2,7 @@ import { fetchAuthSession } from "@aws-amplify/auth";
 import { useQuery } from "@tanstack/react-query";
 import { Amplify } from "aws-amplify";
 import { Hub } from "aws-amplify/utils";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ElementType } from "react";
 
 import { __experimentalHeading as Heading } from "@wordpress/components";
 import { __ } from "@wordpress/i18n";
@@ -35,6 +35,7 @@ const configUrl =
     : "https://wpsuite.io/static/config/prod.json";
 
 const wpsuite = getWpSuite();
+const HeadingComponent = Heading as unknown as ElementType;
 
 const Main = (props: MainProps) => {
   const { nonce } = props;
@@ -194,7 +195,7 @@ const Main = (props: MainProps) => {
   return (
     <div className={classes["wpc-container"]}>
       <Stack mb="md" gap={4}>
-        <Heading
+        <HeadingComponent
           level={1}
           style={{
             display: "flex",
@@ -204,7 +205,7 @@ const Main = (props: MainProps) => {
           }}
         >
           {__(isMobile ? "WPSuite" : "WPSuite Site Connection", TEXT_DOMAIN)}
-        </Heading>
+        </HeadingComponent>
         <Text>
           <strong>WPSuite</strong> is a commercial platform developed by{" "}
           <strong>Smart Cloud Solutions, Inc</strong>. Connecting your site lets

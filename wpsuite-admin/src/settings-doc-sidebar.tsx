@@ -95,6 +95,39 @@ export function DocSidebar({ opened, close, scrollToId }: DocSidebarProps) {
           them once here instead of in each individual plugin.
         </Text>
 
+        <Title order={3} mt="md" id="wpsuite-theme-css">
+          Custom WPSuite CSS
+        </Title>
+        <Text>
+          WPSuite blocks render their important frontend UI inside shadow roots,
+          so regular WordPress Additional CSS does not automatically reach their
+          internal buttons and component chrome.
+        </Text>
+        <Text>
+          Use this field for <strong>site-wide shared styling</strong> across
+          WPSuite plugins, especially for common button, spacing, and surface
+          rules. Keep using per-block <Code>themeOverrides</Code> when a single
+          block instance needs a custom theme.
+        </Text>
+        <Text>
+          The saved CSS is written to{" "}
+          <Code>/wp-content/uploads/hub-for-wpsuiteio/wpsuite-theme.css</Code>{" "}
+          so plugins can load it alongside their own shadow-root stylesheets.
+        </Text>
+        <List size="sm" spacing="sm" mt="xs">
+          <List.Item>
+            Prefer stable component selectors that WPSuite controls, such as
+            Amplify button classes, over theme-level page selectors.
+          </List.Item>
+          <List.Item>
+            Keep this file focused on shared design tokens and reusable visual
+            rules, not one-off page tweaks.
+          </List.Item>
+          <List.Item>
+            Clearing the field removes the generated CSS file entirely.
+          </List.Item>
+        </List>
+
         {/* ── reCAPTCHA Site Key ──────────────────────────────────── */}
         <Title order={3} mt="md" id="recaptcha-site-key">
           Google reCAPTCHA (v3) Site Key

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ElementType } from "react";
 import {
   DEFAULT_THEME,
   Button,
@@ -7,6 +7,7 @@ import {
   Stack,
   Text,
   TextInput,
+  Textarea,
   Checkbox,
   ActionIcon,
 } from "@mantine/core";
@@ -23,8 +24,10 @@ import { getWpSuite, TEXT_DOMAIN } from "@smart-cloud/wpsuite-core";
 import { DocSidebar } from "./settings-doc-sidebar";
 
 const wpsuite = getWpSuite();
+const HeadingComponent = Heading as unknown as ElementType;
 
 type RecaptchaSettings = {
+  wpsuiteThemeCss: string;
   reCaptchaPublicKey: string;
   useRecaptchaNet: boolean;
   useRecaptchaEnterprise: boolean;
@@ -41,7 +44,12 @@ function InfoLabel({ text, scrollToId, onOpen }: InfoLabelProps) {
   return (
     <Group align="center" gap="0.25rem">
       {text}
-      <ActionIcon variant="subtle" onClick={() => onOpen(scrollToId)} size="sm">
+      <ActionIcon
+        variant="subtle"
+        onClick={() => onOpen(scrollToId)}
+        size="sm"
+        aria-label={`Open documentation for ${text}`}
+      >
         <IconHelp size={14} />
       </ActionIcon>
     </Group>
@@ -50,6 +58,7 @@ function InfoLabel({ text, scrollToId, onOpen }: InfoLabelProps) {
 
 export default function SettingsScreen() {
   const [settings, setSettings] = useState<RecaptchaSettings>({
+    wpsuiteThemeCss: wpsuite?.siteSettings?.wpsuiteThemeCss || "",
     reCaptchaPublicKey: wpsuite?.siteSettings?.reCaptchaPublicKey || "",
     useRecaptchaNet: wpsuite?.siteSettings?.useRecaptchaNet || false,
     useRecaptchaEnterprise:
@@ -86,6 +95,10 @@ export default function SettingsScreen() {
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
+      if (wpsuite) {
+        wpsuite.siteSettings = payload;
+      }
+
       notifications.show({
         title: __("Settings saved", TEXT_DOMAIN),
         message: __("Settings saved successfully.", TEXT_DOMAIN),
@@ -112,7 +125,7 @@ export default function SettingsScreen() {
 
   return (
     <Stack p="md" gap="md" maw={1280}>
-      <Heading
+      <HeadingComponent
         level={1}
         style={{
           display: "flex",
@@ -125,11 +138,48 @@ export default function SettingsScreen() {
           isMobile ? "WPSuite Settings" : "WPSuite General Settings",
           TEXT_DOMAIN,
         )}
-      </Heading>
+      </HeadingComponent>
       <Text>
         Configure settings that apply to all WPSuite.io plugins on your site,
-        such as Google reCAPTCHA integration for forms and authentication.
+        such as shared shadow-root styling and Google reCAPTCHA integration for
+        forms and authentication.
       </Text>
+
+      <Card withBorder radius="lg" p="lg">
+        <Text fw={600} mb="md">
+          WPSuite Theme CSS
+        </Text>
+        <Textarea
+          disabled={saving}
+          label={
+            <InfoLabel
+              text="Custom WPSuite CSS"
+              scrollToId="wpsuite-theme-css"
+              onOpen={openInfo}
+            />
+          }
+          description="Applies site-wide to WPSuite components rendered inside shadow roots. Use this for shared button and component styling that WordPress Additional CSS cannot reach."
+          value={settings.wpsuiteThemeCss}
+          onChange={(e) =>
+            setSettings({
+              ...settings,
+              wpsuiteThemeCss: e.target.value,
+            })
+          }
+          placeholder={
+            ".amplify-button {\n  border-radius: 999px;\n  font-weight: 700;\n}"
+          }
+          autosize
+          minRows={8}
+          maxRows={24}
+          spellCheck={false}
+          styles={{
+            input: {
+              fontFamily: "var(--mantine-font-family-monospace, monospace)",
+            },
+          }}
+        />
+      </Card>
 
       <Card withBorder radius="lg" p="lg">
         <Text fw={600} mb="md">

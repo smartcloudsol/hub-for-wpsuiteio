@@ -449,7 +449,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
         ? siteSettings.subscriber
         : !!subscriptionType;
 
-      // Preserve current recaptcha settings from wpsuite global
+      // Preserve current shared site settings from the WPSuite global.
       const currentSettings = wpsuite?.siteSettings || {};
 
       return fetch(wpsuite!.restUrl + "/update-site-settings", {
@@ -464,7 +464,10 @@ export const Settings: FunctionComponent<SettingsProps> = (
           siteKey: siteSettings ? siteSettings.siteKey : siteKey,
           lastUpdate: new Date().getTime(),
           subscriber,
-          // Preserve existing recaptcha settings
+          wpsuiteThemeCss:
+            siteSettings?.wpsuiteThemeCss ??
+            currentSettings.wpsuiteThemeCss ??
+            "",
           reCaptchaPublicKey:
             siteSettings?.reCaptchaPublicKey ??
             currentSettings.reCaptchaPublicKey ??

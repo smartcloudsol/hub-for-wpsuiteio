@@ -23,6 +23,7 @@ if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'model.php')) {
 const VERSION_WEBCRYPTO = '1.1.5';
 const VERSION_AMPLIFY = '1.1.6';
 const VERSION_MANTINE = '1.0.8';
+const WPSUITE_THEME_CSS_FILENAME = 'wpsuite-theme.css';
 
 class HubAdmin
 {
@@ -35,6 +36,7 @@ class HubAdmin
             lastUpdate: 0,
             subscriber: false,
             siteKey: '',
+            wpsuiteThemeCss: '',
             reCaptchaPublicKey: '',
             useRecaptchaNet: false,
             useRecaptchaEnterprise: false,
@@ -47,6 +49,7 @@ class HubAdmin
             $this->siteSettings->lastUpdate ??= 0;
             $this->siteSettings->subscriber ??= false;
             $this->siteSettings->siteKey ??= '';
+            $this->siteSettings->wpsuiteThemeCss ??= '';
             $this->siteSettings->reCaptchaPublicKey ??= '';
             $this->siteSettings->useRecaptchaNet ??= false;
             $this->siteSettings->useRecaptchaEnterprise ??= false;
@@ -74,10 +77,10 @@ class HubAdmin
      */
     public function addMainScript(): void
     {
-        $upload_info = wp_upload_dir();
+        $upload_paths = $this->getHubUploadPaths();
         $data = array(
             'restUrl' => rest_url(SMARTCLOUD_WPSUITE_SLUG . '/v1'),
-            'uploadUrl' => trailingslashit($upload_info['baseurl']) . SMARTCLOUD_WPSUITE_SLUG . '/',
+            'uploadUrl' => $upload_paths['url'],
             'nonce' => wp_create_nonce('wp_rest'),
             'siteSettings' => array(
                 'accountId' => $this->siteSettings->accountId,
@@ -85,6 +88,7 @@ class HubAdmin
                 'siteKey' => is_admin() ? $this->siteSettings->siteKey : '',
                 'lastUpdate' => $this->siteSettings->lastUpdate,
                 'subscriber' => $this->siteSettings->subscriber,
+                'wpsuiteThemeCss' => $this->siteSettings->wpsuiteThemeCss,
                 'reCaptchaPublicKey' => $this->siteSettings->reCaptchaPublicKey,
                 'useRecaptchaNet' => $this->siteSettings->useRecaptchaNet,
                 'useRecaptchaEnterprise' => $this->siteSettings->useRecaptchaEnterprise,
@@ -275,18 +279,20 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
     public function updateSiteSettings(WP_REST_Request $request)
     {
         $settings_param = json_decode($request->get_body());
+        $wpsuite_theme_css = $this->normalizeThemeCssValue($settings_param->wpsuiteThemeCss ?? null);
 
         if ($settings_param->accountId) {
             $this->siteSettings = new SiteSettings(
-                $settings_param->accountId,
-                $settings_param->siteId,
-                $settings_param->lastUpdate,
-                $settings_param->subscriber,
-                $settings_param->siteKey,
-                $settings_param->reCaptchaPublicKey ?? '',
-                $settings_param->useRecaptchaNet ?? false,
-                $settings_param->useRecaptchaEnterprise ?? false,
-                $settings_param->renderRecaptchaProvider ?? true
+                accountId: $settings_param->accountId,
+                siteId: $settings_param->siteId,
+                lastUpdate: $settings_param->lastUpdate,
+                subscriber: $settings_param->subscriber,
+                siteKey: $settings_param->siteKey,
+                wpsuiteThemeCss: $wpsuite_theme_css,
+                reCaptchaPublicKey: $settings_param->reCaptchaPublicKey ?? '',
+                useRecaptchaNet: $settings_param->useRecaptchaNet ?? false,
+                useRecaptchaEnterprise: $settings_param->useRecaptchaEnterprise ?? false,
+                renderRecaptchaProvider: $settings_param->renderRecaptchaProvider ?? true
             );
 
             update_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings', $this->siteSettings);
@@ -297,6 +303,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 lastUpdate: 0,
                 subscriber: false,
                 siteKey: '',
+                wpsuiteThemeCss: $wpsuite_theme_css,
                 reCaptchaPublicKey: $settings_param->reCaptchaPublicKey ?? '',
                 useRecaptchaNet: $settings_param->useRecaptchaNet ?? false,
                 useRecaptchaEnterprise: $settings_param->useRecaptchaEnterprise ?? false,
@@ -304,6 +311,8 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             );
             update_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings', $this->siteSettings);
         }
+
+        $this->persistWpsuiteThemeCss($wpsuite_theme_css);
 
         if ($settings_param->subscriber) {
             $this->reloadConfig(
@@ -325,6 +334,214 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         }
 
         add_action('rest_api_init', array($this, 'initRestApi'));
+    }
+
+    private function getHubUploadPaths(): array
+    {
+        $upload_dir_info = wp_upload_dir();
+
+        return array(
+            'dir' => trailingslashit($upload_dir_info['basedir']) . SMARTCLOUD_WPSUITE_SLUG . '/',
+            'url' => trailingslashit($upload_dir_info['baseurl']) . SMARTCLOUD_WPSUITE_SLUG . '/',
+        );
+    }
+
+    private function normalizeThemeCssValue(mixed $value): string
+    {
+        if (!is_string($value)) {
+            return '';
+        }
+
+        return str_replace(array("\r\n", "\r"), "\n", trim($value));
+    }
+
+    private function sanitizeThemeCssStylesheet(string $css): string
+    {
+        $css = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+/', '', $css);
+        if (!is_string($css) || $css === '') {
+            return '';
+        }
+
+        $css = preg_replace('!/\*.*?\*/!s', '', $css);
+        if (!is_string($css) || trim($css) === '') {
+            return '';
+        }
+
+        $sanitized_rules = array();
+        $length = strlen($css);
+        $rule_start = 0;
+        $block_start = 0;
+        $depth = 0;
+        $quote = '';
+        $prelude = '';
+
+        for ($index = 0; $index < $length; $index++) {
+            $char = $css[$index];
+
+            if ($quote !== '') {
+                if ($char === '\\') {
+                    $index++;
+                    continue;
+                }
+
+                if ($char === $quote) {
+                    $quote = '';
+                }
+
+                continue;
+            }
+
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+                continue;
+            }
+
+            if ($char === '{') {
+                if ($depth === 0) {
+                    $prelude = trim(substr($css, $rule_start, $index - $rule_start));
+                    $block_start = $index + 1;
+                }
+
+                $depth++;
+                continue;
+            }
+
+            if ($char === '}') {
+                if ($depth === 0) {
+                    continue;
+                }
+
+                $depth--;
+                if ($depth !== 0) {
+                    continue;
+                }
+
+                $body = substr($css, $block_start, $index - $block_start);
+                $sanitized_rule = $this->sanitizeThemeCssRule($prelude, $body);
+                if ($sanitized_rule !== '') {
+                    $sanitized_rules[] = $sanitized_rule;
+                }
+
+                $rule_start = $index + 1;
+                $prelude = '';
+                continue;
+            }
+
+            if ($char === ';' && $depth === 0) {
+                $rule_start = $index + 1;
+            }
+        }
+
+        return trim(implode("\n\n", $sanitized_rules));
+    }
+
+    private function sanitizeThemeCssRule(string $prelude, string $body): string
+    {
+        $prelude = $this->sanitizeThemeCssPrelude($prelude);
+        if ($prelude === '') {
+            return '';
+        }
+
+        $lower_prelude = strtolower($prelude);
+        if ($this->isThemeCssContainerAtRule($lower_prelude)) {
+            $sanitized_body = $this->sanitizeThemeCssStylesheet($body);
+            if ($sanitized_body === '') {
+                return '';
+            }
+
+            return $prelude . " {\n" . $sanitized_body . "\n}";
+        }
+
+        $sanitized_body = $this->sanitizeThemeCssDeclarationBlock($body);
+        if ($sanitized_body === '') {
+            return '';
+        }
+
+        return $prelude . " {\n  " . $sanitized_body . "\n}";
+    }
+
+    private function sanitizeThemeCssPrelude(string $prelude): string
+    {
+        $prelude = preg_replace('/[\x00-\x1F\x7F]+/', ' ', trim($prelude));
+        if (!is_string($prelude) || $prelude === '') {
+            return '';
+        }
+
+        $prelude = preg_replace('/\s+/', ' ', $prelude);
+        if (!is_string($prelude) || $prelude === '') {
+            return '';
+        }
+
+        if (str_contains($prelude, '{') || str_contains($prelude, '}') || str_contains($prelude, ';')) {
+            return '';
+        }
+
+        $lower_prelude = strtolower($prelude);
+        if (str_starts_with($lower_prelude, '@import') || str_starts_with($lower_prelude, '@charset') || str_starts_with($lower_prelude, '@namespace')) {
+            return '';
+        }
+
+        if (
+            str_starts_with($lower_prelude, '@')
+            && !$this->isThemeCssContainerAtRule($lower_prelude)
+            && !str_starts_with($lower_prelude, '@font-face')
+        ) {
+            return '';
+        }
+
+        return $prelude;
+    }
+
+    private function isThemeCssContainerAtRule(string $prelude): bool
+    {
+        foreach (array('@media', '@supports', '@container', '@layer', '@keyframes', '@-webkit-keyframes', '@-moz-keyframes', '@-o-keyframes') as $prefix) {
+            if (str_starts_with($prelude, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function sanitizeThemeCssDeclarationBlock(string $declarations): string
+    {
+        $declarations = trim($declarations);
+        if ($declarations === '') {
+            return '';
+        }
+
+        if (!function_exists('safecss_filter_attr')) {
+            return sanitize_textarea_field($declarations);
+        }
+
+        $sanitized = safecss_filter_attr($declarations);
+        if (!is_string($sanitized)) {
+            return '';
+        }
+
+        $sanitized = trim($sanitized);
+        if ($sanitized === '') {
+            return '';
+        }
+
+        return rtrim(str_replace("\n", "\n  ", $sanitized), ';') . ';';
+    }
+
+    private function persistWpsuiteThemeCss(string $css): void
+    {
+        $upload_paths = $this->getHubUploadPaths();
+        $css_path = $upload_paths['dir'] . WPSUITE_THEME_CSS_FILENAME;
+        $sanitized_css = $this->sanitizeThemeCssStylesheet($css);
+
+        if ($sanitized_css === '') {
+            if (file_exists($css_path)) {
+                wp_delete_file($css_path);
+            }
+            return;
+        }
+
+        wp_mkdir_p($upload_paths['dir']);
+        file_put_contents($css_path, $sanitized_css);
     }
 
     private function reloadConfig($accountId, $siteId, $siteKey)
