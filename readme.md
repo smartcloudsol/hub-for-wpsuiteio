@@ -17,7 +17,7 @@ You can find the continuously expanding, detailed documentation at:
 - `wpsuite-core/`: Shared JavaScript modules (licence handling, site connection)
 - `wpsuite-admin/`: Logic and WordPress-facing assets for the shared admin interface
 - `wpsuite-main/`: Shared frontend runtime rendered by plugins; currently responsible for Google reCAPTCHA rendering when it is enabled in any plugin
-- `wpsuite-amplify-vendor/`: Shared vendor bundle for Amplify UI dependencies used by plugins (`@aws-amplify/ui`, `@aws-amplify/ui-react`, `aws-amplify`)
+- `wpsuite-amplify-vendor/`: Shared vendor bundle for Amplify UI dependencies used by plugins (`@smart-cloud/aws-amplify-ui`, `@smart-cloud/aws-amplify-ui-react`, `aws-amplify`)
 - `wpsuite-mantine-vendor/`: Shared Mantine JavaScript and CSS vendor assets used by plugins (`@mantine/...`)
 - `wpsuite-webcrypto-vendor/`: Shared WebCrypto vendor bundle used for signing subscription-related licence and configuration files (`jose` and related dependencies)
 - `dist/` and `php/` folders: Contain compiled frontend assets and PHP files that are copied into plugin packages after build
