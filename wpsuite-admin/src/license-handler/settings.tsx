@@ -256,6 +256,9 @@ export const Settings: FunctionComponent<SettingsProps> = (
   });
 
   const openPricingTable = useCallback(async () => {
+    if (subscriptionType === "AGENCY") {
+      return;
+    }
     if (customerId) {
       get({
         apiName: "backend",
@@ -273,7 +276,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
       setClientSecret(null);
     }
     stack.open("prices");
-  }, [accountId, customerId, stack]);
+  }, [accountId, customerId, stack, subscriptionType]);
 
   const openBillingPortalSession = useCallback(
     async (type?: "update") => {
@@ -665,7 +668,8 @@ export const Settings: FunctionComponent<SettingsProps> = (
               >
                 Clear Cache
               </Menu.Item>
-              {authStatus === "authenticated" && (
+              {authStatus === "authenticated" &&
+                (subscriptionType !== "AGENCY" || !!subscription) && (
                 <>
                   <Menu.Divider />
                   <Menu.Label>Subscription</Menu.Label>
@@ -1341,6 +1345,11 @@ export const Settings: FunctionComponent<SettingsProps> = (
                       PRO
                     </Badge>
                   )}
+                  {subscriptionType === "AGENCY" && (
+                    <Badge color="teal" miw={60}>
+                      AGENCY
+                    </Badge>
+                  )}
                 </Skeleton>
                 {renderSettingsPanel()}
               </>
@@ -1369,6 +1378,11 @@ export const Settings: FunctionComponent<SettingsProps> = (
                       PRO
                     </Badge>
                   )}
+                  {subscriptionType === "AGENCY" && (
+                    <Badge color="teal" miw={60}>
+                      AGENCY
+                    </Badge>
+                  )}
                 </Skeleton>
               )}
               {!!subscriptionType && (
@@ -1391,7 +1405,9 @@ export const Settings: FunctionComponent<SettingsProps> = (
                       {subscriptionType !== null && (
                         <Stack gap={2}>
                           <Text size="sm" fw={500} component="div">
-                            {subscription
+                            {subscriptionType === "AGENCY"
+                              ? "Covered by Agency subscription"
+                              : subscription
                               ? subscription?.active
                                 ? "Subscription active"
                                 : "Subscription inactive"
@@ -1895,7 +1911,7 @@ function SiteSelector({
                           "|" +
                           site.siteKey +
                           "|" +
-                          (site.subscription !== undefined)
+                          Boolean(site.subscriptionType)
                         }
                         key={site.siteId}
                         disabled={siteEditing}
