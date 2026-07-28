@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Drawer, Stack, Text, Title, List, Code } from "@mantine/core";
 
 import classes from "./main.module.css";
+import "./doc-sidebar.css";
 
 interface DocSidebarProps {
   opened: boolean;
@@ -82,6 +83,7 @@ export function DocSidebar({ opened, close, scrollToId }: DocSidebarProps) {
 
   return (
     <Drawer
+      classNames={{ content: "wpsuite-doc-sidebar" }}
       opened={opened}
       onClose={close}
       position="right"

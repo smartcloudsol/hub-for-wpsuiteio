@@ -19,6 +19,9 @@ if (!defined('ABSPATH')) {
 if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'model.php')) {
     require_once SMARTCLOUD_WPSUITE_PATH . 'model.php';
 }
+if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'abilities.php')) {
+    require_once SMARTCLOUD_WPSUITE_PATH . 'abilities.php';
+}
 
 const VERSION_WEBCRYPTO = '1.1.5';
 const VERSION_AMPLIFY = '1.1.6';
