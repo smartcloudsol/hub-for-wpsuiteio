@@ -19,7 +19,10 @@ if (!defined('ABSPATH')) {
 if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'model.php')) {
     require_once SMARTCLOUD_WPSUITE_PATH . 'model.php';
 }
-if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'abilities.php')) {
+if (
+    !class_exists('\\SmartCloud\\WPSuite\\Hub\\Abilities\\Product_Provider_Base', false)
+    && file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'abilities.php')
+) {
     require_once SMARTCLOUD_WPSUITE_PATH . 'abilities.php';
 }
 

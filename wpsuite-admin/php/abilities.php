@@ -16,6 +16,10 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (class_exists(Product_Provider_Base::class, false)) {
+    return;
+}
+
 abstract class Product_Provider_Base
 {
     protected string $provider_id;
