@@ -63,7 +63,61 @@ class HubAdmin
         } catch (TypeError | Exception $e) {
             $this->siteSettings = $defaultSiteSettings;
         }
+        add_filter('smartcloud_wpsuite_replace_theme_css_fragment', array($this, 'replaceThemeCssFragment'), 10, 3);
         $this->registerRestRoutes();
+    }
+
+    /**
+     * Replace one plugin-owned section of the shared Shadow DOM stylesheet.
+     *
+     * The marker stays in the editable option while the generated CSS file is
+     * sanitized as usual. Other managed sections and user-authored CSS remain
+     * untouched.
+     *
+     * @param mixed  $previous_result Value supplied by an earlier filter callback.
+     * @param string $owner           Stable lowercase owner slug.
+     * @param string $css             CSS declarations owned by the caller.
+     * @return array<string, mixed>|WP_Error
+     */
+    public function replaceThemeCssFragment(mixed $previous_result, string $owner, string $css): array|WP_Error
+    {
+        if (!current_user_can('manage_options')) {
+            return new WP_Error('wpsuite_theme_css_forbidden', 'You are not allowed to update WP Suite Theme CSS.');
+        }
+
+        if (!preg_match('/^[a-z0-9][a-z0-9-]{1,62}$/', $owner)) {
+            return new WP_Error('wpsuite_theme_css_owner_invalid', 'The WP Suite Theme CSS owner is invalid.');
+        }
+
+        $css = $this->normalizeThemeCssValue($css);
+        if (strlen($css) > 100000 || str_contains($css, 'WPSuite managed CSS:')) {
+            return new WP_Error('wpsuite_theme_css_fragment_invalid', 'The WP Suite Theme CSS fragment is invalid.');
+        }
+
+        $begin = '/* WPSuite managed CSS: ' . $owner . ' begin */';
+        $end = '/* WPSuite managed CSS: ' . $owner . ' end */';
+        $current = $this->normalizeThemeCssValue($this->siteSettings->wpsuiteThemeCss ?? '');
+        $pattern = '/(?:\n{0,2})?' . preg_quote($begin, '/') . '.*?' . preg_quote($end, '/') . '(?:\n{0,2})?/s';
+        $current = preg_replace($pattern, "\n", $current);
+        if (!is_string($current)) {
+            return new WP_Error('wpsuite_theme_css_replace_failed', 'The WP Suite Theme CSS fragment could not be replaced.');
+        }
+
+        $current = trim($current);
+        if ($css !== '') {
+            $fragment = $begin . "\n" . $css . "\n" . $end;
+            $current = $current === '' ? $fragment : $current . "\n\n" . $fragment;
+        }
+
+        $this->siteSettings->wpsuiteThemeCss = $current;
+        update_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings', $this->siteSettings);
+        $this->persistWpsuiteThemeCss($current);
+
+        return array(
+            'success' => true,
+            'owner' => $owner,
+            'fragment_removed' => $css === '',
+        );
     }
 
     public function init(): void
@@ -102,6 +156,14 @@ class HubAdmin
                 'hubInstalled' => true,
             ),
         );
+        $encoded_data = wp_json_encode(
+            $data,
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        );
+        if (!is_string($encoded_data)) {
+            $encoded_data = '{}';
+        }
+
         $js = 'const __wpsuiteGlobal = (typeof globalThis !== "undefined") ? globalThis : window;
 __wpsuiteGlobal.WpSuite = __wpsuiteGlobal.WpSuite ?? {};
 __wpsuiteGlobal.WpSuite.plugins = __wpsuiteGlobal.WpSuite.plugins ?? {};
@@ -109,11 +171,14 @@ __wpsuiteGlobal.WpSuite.events = __wpsuiteGlobal.WpSuite.events ?? {
   emit: function (type, detail) { window.dispatchEvent(new CustomEvent(type, { detail })); },
   on: function (type, cb, opts) { window.addEventListener(type, cb, opts); },
 };
-Object.assign(__wpsuiteGlobal.WpSuite, ' . wp_json_encode($data) . ');
+Object.assign(__wpsuiteGlobal.WpSuite, ' . $encoded_data . ');
 // backward compatibility
 var WpSuite = __wpsuiteGlobal.WpSuite;
 ';
-        wp_print_inline_script_tag(wp_kses_post($js));
+        // The data is JSON-encoded with HTML-significant characters escaped.
+        // KSES must not process JavaScript because it corrupts valid CSS selectors
+        // embedded in the site settings and can turn this whole bootstrap invalid.
+        wp_print_inline_script_tag($js);
     }
 
     /**
