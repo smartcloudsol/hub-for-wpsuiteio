@@ -9,6 +9,7 @@ namespace SmartCloud\WPSuite\Hub;
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly.
 }
+#[\AllowDynamicProperties]
 class SiteSettings
 {
     public function __construct(
@@ -17,7 +18,6 @@ class SiteSettings
         public int $lastUpdate = 0,
         public bool $subscriber = false,
         public string $siteKey = "",
-        public string $wpsuiteThemeCss = "",
         public string $reCaptchaPublicKey = "",
         public bool $useRecaptchaNet = false,
         public bool $useRecaptchaEnterprise = false,

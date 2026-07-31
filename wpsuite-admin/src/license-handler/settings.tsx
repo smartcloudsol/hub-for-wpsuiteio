@@ -467,10 +467,6 @@ export const Settings: FunctionComponent<SettingsProps> = (
           siteKey: siteSettings ? siteSettings.siteKey : siteKey,
           lastUpdate: new Date().getTime(),
           subscriber,
-          wpsuiteThemeCss:
-            siteSettings?.wpsuiteThemeCss ??
-            currentSettings.wpsuiteThemeCss ??
-            "",
           reCaptchaPublicKey:
             siteSettings?.reCaptchaPublicKey ??
             currentSettings.reCaptchaPublicKey ??
@@ -1177,12 +1173,11 @@ export const Settings: FunctionComponent<SettingsProps> = (
                                       the license content.
                                     </Text>
                                     <Text size="sm" mb="sm">
-                                      Save that value as <Code>lic.jws</Code> in
-                                      your site’s&nbsp;
-                                      <Code>
-                                        /wp-content/uploads/hub-for-wpsuiteio/
-                                      </Code>{" "}
-                                      directory.
+                                      WordPress stores that value in the site
+                                      options and serves it to WP Suite blocks
+                                      through the virtual <Code>lic.jws</Code>
+                                      endpoint. No manual file operation is
+                                      required.
                                     </Text>
                                     <Text size="sm" mb="sm">
                                       <Text fw={600} component="span">

@@ -112,9 +112,11 @@ export function DocSidebar({ opened, close, scrollToId }: DocSidebarProps) {
           block instance needs a custom theme.
         </Text>
         <Text>
-          The saved CSS is written to{" "}
-          <Code>/wp-content/uploads/hub-for-wpsuiteio/wpsuite-theme.css</Code>{" "}
-          so plugins can load it alongside their own shadow-root stylesheets.
+          The button opens WordPress&apos;s built-in CSS editor. WordPress stores
+          and validates the stylesheet under the dedicated{" "}
+          <Code>smartcloud-wpsuiteio-theme</Code> key, while WP Suite exposes
+          the published value through a virtual <Code>theme.css</Code> URL for
+          its components.
         </Text>
         <List size="sm" spacing="sm" mt="xs">
           <List.Item>
@@ -126,7 +128,7 @@ export function DocSidebar({ opened, close, scrollToId }: DocSidebarProps) {
             rules, not one-off page tweaks.
           </List.Item>
           <List.Item>
-            Clearing the field removes the generated CSS file entirely.
+            Publishing an empty stylesheet makes the virtual CSS URL inactive.
           </List.Item>
         </List>
 

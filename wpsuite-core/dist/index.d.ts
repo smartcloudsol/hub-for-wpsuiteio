@@ -26,6 +26,7 @@ export interface WpSuiteGlobal {
     nonce: string;
     restUrl: string;
     uploadUrl: string;
+    themeCssEditorUrl?: string;
     view: WpSuiteView;
     plugins: WpSuitePluginRegistry;
     events?: WpSuiteEvents;
@@ -41,7 +42,6 @@ export interface SiteSettings {
     lastUpdate?: number;
     subscriber?: boolean;
     siteKey?: string;
-    wpsuiteThemeCss?: string;
     reCaptchaPublicKey?: string;
     useRecaptchaNet?: boolean;
     useRecaptchaEnterprise?: boolean;

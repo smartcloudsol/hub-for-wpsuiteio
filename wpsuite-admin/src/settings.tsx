@@ -7,7 +7,6 @@ import {
   Stack,
   Text,
   TextInput,
-  Textarea,
   Checkbox,
   ActionIcon,
 } from "@mantine/core";
@@ -24,10 +23,12 @@ import { getWpSuite, TEXT_DOMAIN } from "@smart-cloud/wpsuite-core";
 import { DocSidebar } from "./settings-doc-sidebar";
 
 const wpsuite = getWpSuite();
+const themeCssEditorUrl = (
+  wpsuite as (typeof wpsuite & { themeCssEditorUrl?: string })
+)?.themeCssEditorUrl;
 const HeadingComponent = Heading as unknown as ElementType;
 
 type RecaptchaSettings = {
-  wpsuiteThemeCss: string;
   reCaptchaPublicKey: string;
   useRecaptchaNet: boolean;
   useRecaptchaEnterprise: boolean;
@@ -58,7 +59,6 @@ function InfoLabel({ text, scrollToId, onOpen }: InfoLabelProps) {
 
 export default function SettingsScreen() {
   const [settings, setSettings] = useState<RecaptchaSettings>({
-    wpsuiteThemeCss: wpsuite?.siteSettings?.wpsuiteThemeCss || "",
     reCaptchaPublicKey: wpsuite?.siteSettings?.reCaptchaPublicKey || "",
     useRecaptchaNet: wpsuite?.siteSettings?.useRecaptchaNet || false,
     useRecaptchaEnterprise:
@@ -149,36 +149,29 @@ export default function SettingsScreen() {
         <Text fw={600} mb="md">
           WPSuite Theme CSS
         </Text>
-        <Textarea
-          disabled={saving}
-          label={
-            <InfoLabel
-              text="Custom WPSuite CSS"
-              scrollToId="wpsuite-theme-css"
-              onOpen={openInfo}
-            />
-          }
-          description="Applies site-wide to WPSuite components rendered inside shadow roots. Use this for shared button and component styling that WordPress Additional CSS cannot reach."
-          value={settings.wpsuiteThemeCss}
-          onChange={(e) =>
-            setSettings({
-              ...settings,
-              wpsuiteThemeCss: e.target.value,
-            })
-          }
-          placeholder={
-            ".amplify-button {\n  border-radius: 999px;\n  font-weight: 700;\n}"
-          }
-          autosize
-          minRows={8}
-          maxRows={24}
-          spellCheck={false}
-          styles={{
-            input: {
-              fontFamily: "var(--mantine-font-family-monospace, monospace)",
-            },
-          }}
-        />
+        <Stack gap="sm">
+          <Text size="sm">
+            Edit the shared stylesheet with WordPress&apos;s built-in CSS
+            editor and validation. WP Suite components load the published CSS
+            inside their own style scopes.
+          </Text>
+          <Group>
+            <Button
+              component="a"
+              href={themeCssEditorUrl || "#"}
+              disabled={!themeCssEditorUrl}
+            >
+              {__("Open WordPress CSS Editor", TEXT_DOMAIN)}
+            </Button>
+            <ActionIcon
+              variant="subtle"
+              onClick={() => openInfo("wpsuite-theme-css")}
+              aria-label="Open documentation for WP Suite Theme CSS"
+            >
+              <IconHelp size={16} />
+            </ActionIcon>
+          </Group>
+        </Stack>
       </Card>
 
       <Card withBorder radius="lg" p="lg">
