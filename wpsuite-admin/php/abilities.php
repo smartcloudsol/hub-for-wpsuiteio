@@ -2,10 +2,10 @@
 /**
  * Shared read-only WordPress Abilities API helpers for WPSuite product plugins.
  *
- * This file is copied into each product plugin's hub-for-wpsuiteio directory
- * from the Hub repository and loaded by that plugin's hub-loader.php.
+ * This file is copied into each product plugin's smartcloud-wpsuite directory
+ * from the shared repository and loaded by that plugin's hub-loader.php.
  *
- * @package hub-for-wpsuiteio
+ * @package smartcloud-wpsuite
  */
 
 namespace SmartCloud\WPSuite\Hub\Abilities;

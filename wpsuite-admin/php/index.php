@@ -36,6 +36,8 @@ const WPSUITE_LICENSE_OPTION = 'smartcloud-wpsuiteio/license-jws';
 const WPSUITE_CONFIG_OPTION = 'smartcloud-wpsuiteio/config-encrypted';
 const WPSUITE_LICENSE_REFRESH_OPTION = 'smartcloud-wpsuiteio/license-last-refresh';
 const WPSUITE_LICENSE_REFRESH_LOCK = 'smartcloud-wpsuiteio/license-refresh-lock';
+const WPSUITE_NAMESPACE_MIGRATION_OPTION = 'smartcloud-wpsuite/namespace-migration-version';
+const WPSUITE_NAMESPACE_MIGRATION_VERSION = '1';
 
 class HubAdmin
 {
@@ -44,6 +46,7 @@ class HubAdmin
 
     public function __construct()
     {
+        $this->migrateLegacyNamespaceOptions();
         $defaultSiteSettings = new SiteSettings(
             accountId: '',
             siteId: '',
@@ -55,7 +58,7 @@ class HubAdmin
             useRecaptchaEnterprise: false,
             renderRecaptchaProvider: true,
         );
-        $stored = get_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings', $defaultSiteSettings);
+        $stored = get_option(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/site-settings', $defaultSiteSettings);
         $values = is_object($stored) ? get_object_vars($stored) : (is_array($stored) ? $stored : array());
         $this->legacyThemeCss = $this->normalizeThemeCssValue($values['wpsuiteThemeCss'] ?? '');
         $this->siteSettings = new SiteSettings(
@@ -84,6 +87,7 @@ class HubAdmin
         add_action('template_redirect', array($this, 'serveVirtualAsset'), 0);
         add_action('customize_register', array($this, 'registerThemeCssCustomizer'));
         add_action('admin_init', array($this, 'migrateLegacyStorage'));
+        add_action('admin_menu', array($this, 'mergeLegacyAdminMenu'), PHP_INT_MAX);
         add_filter('smartcloud_wpsuite_theme_css_url', array($this, 'filterThemeCssUrl'));
         add_action('wp_head', array($this, 'addMainScript', ), 1);
         add_action('admin_head', array($this, 'addMainScript'), 1);
@@ -174,10 +178,10 @@ class HubAdmin
             }
         }
 
-        $stored = get_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings');
+        $stored = get_option(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/site-settings');
         $values = is_object($stored) ? get_object_vars($stored) : (is_array($stored) ? $stored : array());
         if (array_key_exists('wpsuiteThemeCss', $values)) {
-            update_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings', $this->siteSettings, false);
+            $this->writeSiteSettingsOptions($this->siteSettings);
         }
 
         if ($this->siteSettings->subscriber) {
@@ -190,7 +194,7 @@ class HubAdmin
         $upload_dir = wp_upload_dir();
         if (empty($upload_dir['error'])) {
             $legacy_file = trailingslashit($upload_dir['basedir'])
-                . SMARTCLOUD_WPSUITE_SLUG
+                . SMARTCLOUD_WPSUITE_LEGACY_SLUG
                 . '/wpsuite-theme.css';
             if (is_readable($legacy_file)) {
                 $file_css = $this->normalizeThemeCssValue(file_get_contents($legacy_file));
@@ -265,7 +269,7 @@ class HubAdmin
     public function addMainScript(): void
     {
         $data = array(
-            'restUrl' => rest_url(SMARTCLOUD_WPSUITE_SLUG . '/v1'),
+            'restUrl' => rest_url(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/v1'),
             'uploadUrl' => $this->getVirtualAssetBaseUrl(),
             'nonce' => wp_create_nonce('wp_rest'),
             'themeCssEditorUrl' => current_user_can('edit_css')
@@ -365,8 +369,9 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
 
     public function enqueueAdminScripts($connect_suffix, $settings_suffix = null)
     {
-        $GLOBALS['smartcloud_wpsuite_menu_parent'] = SMARTCLOUD_WPSUITE_SLUG;
-        do_action(SMARTCLOUD_WPSUITE_READY_HOOK, SMARTCLOUD_WPSUITE_SLUG);
+        $GLOBALS['smartcloud_wpsuite_menu_parent'] = SMARTCLOUD_WPSUITE_CANONICAL_SLUG;
+        do_action(SMARTCLOUD_WPSUITE_READY_HOOK, SMARTCLOUD_WPSUITE_CANONICAL_SLUG);
+        do_action(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/ready', SMARTCLOUD_WPSUITE_CANONICAL_SLUG);
 
         add_action('admin_enqueue_scripts', function ($hook) use ($connect_suffix, $settings_suffix) {
             if ($hook !== $connect_suffix && $hook !== $settings_suffix) {
@@ -452,12 +457,35 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         echo '<div id="smartcloud-wpsuite-admin"></div>';
     }
 
+    public function renderLegacyAdminPage(): void
+    {
+        wp_safe_redirect(admin_url('admin.php?page=' . SMARTCLOUD_WPSUITE_CANONICAL_SLUG));
+        exit;
+    }
+
+    public function mergeLegacyAdminMenu(): void
+    {
+        global $submenu;
+
+        if (isset($submenu[SMARTCLOUD_WPSUITE_LEGACY_SLUG]) && is_array($submenu[SMARTCLOUD_WPSUITE_LEGACY_SLUG])) {
+            $canonical = is_array($submenu[SMARTCLOUD_WPSUITE_CANONICAL_SLUG] ?? null)
+                ? $submenu[SMARTCLOUD_WPSUITE_CANONICAL_SLUG]
+                : array();
+            foreach ($submenu[SMARTCLOUD_WPSUITE_LEGACY_SLUG] as $item) {
+                if (!in_array($item, $canonical, true)) {
+                    $canonical[] = $item;
+                }
+            }
+            $submenu[SMARTCLOUD_WPSUITE_CANONICAL_SLUG] = $canonical;
+            unset($submenu[SMARTCLOUD_WPSUITE_LEGACY_SLUG]);
+        }
+
+        remove_menu_page(SMARTCLOUD_WPSUITE_LEGACY_SLUG);
+    }
+
     public function initRestApi()
     {
-        register_rest_route(
-            SMARTCLOUD_WPSUITE_SLUG . '/v1',
-            '/update-site-settings',
-            array(
+        $route = array(
                 'methods' => 'POST',
                 'callback' => array($this, 'updateSiteSettings'),
                 'permission_callback' => function () {
@@ -466,8 +494,9 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                     }
                     return true;
                 },
-            )
-        );
+            );
+        register_rest_route(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/v1', '/update-site-settings', $route);
+        register_rest_route(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/v1', '/update-site-settings', $route);
     }
 
     public function updateSiteSettings(WP_REST_Request $request)
@@ -490,7 +519,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 renderRecaptchaProvider: (bool) ($settings_param->renderRecaptchaProvider ?? true)
             );
 
-            update_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings', $this->siteSettings);
+            $this->writeSiteSettingsOptions($this->siteSettings);
         } else {
             $this->siteSettings = new SiteSettings(
                 accountId: '',
@@ -503,7 +532,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 useRecaptchaEnterprise: (bool) ($settings_param->useRecaptchaEnterprise ?? false),
                 renderRecaptchaProvider: (bool) ($settings_param->renderRecaptchaProvider ?? true)
             );
-            update_option(SMARTCLOUD_WPSUITE_SLUG . '/site-settings', $this->siteSettings);
+            $this->writeSiteSettingsOptions($this->siteSettings);
         }
 
         if ($this->siteSettings->subscriber) {
@@ -526,6 +555,25 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         }
 
         add_action('rest_api_init', array($this, 'initRestApi'));
+    }
+
+    private function migrateLegacyNamespaceOptions(): void
+    {
+        $canonical_key = SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/site-settings';
+        $legacy_key = SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/site-settings';
+        $canonical = get_option($canonical_key, null);
+        $legacy = get_option($legacy_key, null);
+
+        if ($canonical === null && $legacy !== null) {
+            update_option($canonical_key, $legacy, false);
+        }
+        update_option(WPSUITE_NAMESPACE_MIGRATION_OPTION, WPSUITE_NAMESPACE_MIGRATION_VERSION, false);
+    }
+
+    private function writeSiteSettingsOptions(SiteSettings $settings): void
+    {
+        update_option(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/site-settings', $settings, false);
+        update_option(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/site-settings', $settings, false);
     }
 
     private function getVirtualAssetBaseUrl(): string
@@ -636,7 +684,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             return;
         }
 
-        $legacy_dir = trailingslashit($upload_dir['basedir']) . SMARTCLOUD_WPSUITE_SLUG . '/';
+        $legacy_dir = trailingslashit($upload_dir['basedir']) . SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/';
         $config = is_readable($legacy_dir . 'config.enc')
             ? trim((string) file_get_contents($legacy_dir . 'config.enc'))
             : '';
@@ -649,7 +697,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
 
         update_option(WPSUITE_CONFIG_OPTION, $config, false);
         update_option(WPSUITE_LICENSE_OPTION, $jws, false);
-        $legacy_refresh = (int) get_option(SMARTCLOUD_WPSUITE_SLUG . '/license-last-refresh', time());
+        $legacy_refresh = (int) get_option(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/license-last-refresh', time());
         update_option(WPSUITE_LICENSE_REFRESH_OPTION, $legacy_refresh, false);
     }
 

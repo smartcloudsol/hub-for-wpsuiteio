@@ -1,0 +1,72 @@
+{
+  "name": "@smart-cloud/wpsuite-blocks",
+  "version": "1.0.0",
+  "description": "Shared Gutenberg blocks and React fallback lifecycle helpers for WP Suite plugins",
+  "keywords": [
+    "wordpress",
+    "gutenberg",
+    "react",
+    "fallback"
+  ],
+  "author": "Smart Cloud Solutions Inc.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./editor": {
+      "types": "./dist/editor.d.ts",
+      "import": "./dist/editor.js",
+      "require": "./dist/editor.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "yarn build:js && yarn build:types",
+    "build:js": "tsup --minify",
+    "build:types": "tsc -p tsconfig.types.json",
+    "lint": "eslint 'src/**/*.{ts,tsx}' --report-unused-disable-directives --max-warnings 0",
+    "test": "node --test tests/*.test.mjs",
+    "release:npm": "yarn build && npm publish --access=public"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "sideEffects": false,
+  "peerDependencies": {
+    "@wordpress/block-editor": "^15.23.0",
+    "@wordpress/blocks": "^15.25.0",
+    "@wordpress/i18n": "^6.25.0",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.1.2",
+    "@types/react": "^18.3.31",
+    "@types/wordpress__block-editor": "^15.0.6",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
+    "@wordpress/block-editor": "^15.23.0",
+    "@wordpress/blocks": "^15.25.0",
+    "@wordpress/i18n": "^6.25.0",
+    "eslint": "^10.8.0",
+    "globals": "^17.8.0",
+    "react": "^18.3.1",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.65.0"
+  },
+  "resolutions": {
+    "brace-expansion": "^5.0.9",
+    "esbuild": "^0.28.1"
+  }
+}

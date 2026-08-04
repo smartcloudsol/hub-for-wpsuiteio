@@ -4,4 +4,5 @@
 clean.sh                    export-ignore
 readme.md                   export-ignore
 wpsuite-core                export-ignore
+wpsuite-blocks              export-ignore
 /screenshot-*.png           export-ignore
