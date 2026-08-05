@@ -25,7 +25,7 @@ if (
 }
 
 const VERSION_WEBCRYPTO = '1.1.5';
-const VERSION_AMPLIFY = '1.1.6';
+const VERSION_AMPLIFY = '1.1.9';
 const VERSION_MANTINE = '1.0.8';
 const WPSUITE_CUSTOM_CSS_STYLESHEET = 'smartcloud-wpsuiteio-theme';
 const WPSUITE_CUSTOM_CSS_SECTION = 'smartcloud_wpsuiteio_theme_css';
