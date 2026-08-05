@@ -1,7 +1,7 @@
 {
   "name": "@smart-cloud/wpsuite-admin",
   "private": true,
-  "version": "2.4.2",
+  "version": "2.4.3",
   "type": "module",
   "license": "ISC",
   "scripts": {

@@ -72,7 +72,73 @@ class HubAdmin
             useRecaptchaEnterprise: (bool) ($values['useRecaptchaEnterprise'] ?? false),
             renderRecaptchaProvider: (bool) ($values['renderRecaptchaProvider'] ?? true),
         );
+        add_filter('smartcloud_wpsuite_replace_theme_css_fragment', array($this, 'replaceThemeCssFragment'), 10, 3);
         $this->registerRestRoutes();
+    }
+
+    /**
+     * Replace one owner-delimited fragment of the WordPress-managed WP Suite stylesheet.
+     *
+     * @param mixed  $previous_result Value supplied by an earlier filter callback.
+     * @param string $owner           Stable lowercase owner slug.
+     * @param string $css             CSS declarations owned by the caller.
+     * @return array<string, mixed>|WP_Error
+     */
+    public function replaceThemeCssFragment(mixed $previous_result, string $owner, string $css): array|WP_Error
+    {
+        if (!current_user_can('edit_css')) {
+            return new WP_Error(
+                'wpsuite_theme_css_forbidden',
+                __('You are not allowed to update WP Suite Theme CSS.', 'smartcloud-wpsuite')
+            );
+        }
+
+        if (!preg_match('/^[a-z0-9][a-z0-9-]{1,62}$/', $owner)) {
+            return new WP_Error(
+                'wpsuite_theme_css_owner_invalid',
+                __('The WP Suite Theme CSS owner is invalid.', 'smartcloud-wpsuite')
+            );
+        }
+
+        $css = $this->normalizeThemeCssValue($css);
+        if (strlen($css) > 100000 || str_contains($css, 'WPSuite managed CSS:')) {
+            return new WP_Error(
+                'wpsuite_theme_css_fragment_invalid',
+                __('The WP Suite Theme CSS fragment is invalid.', 'smartcloud-wpsuite')
+            );
+        }
+
+        $begin = '/* WPSuite managed CSS: ' . $owner . ' begin */';
+        $end = '/* WPSuite managed CSS: ' . $owner . ' end */';
+        $current = $this->normalizeThemeCssValue(wp_get_custom_css(WPSUITE_CUSTOM_CSS_STYLESHEET));
+        $pattern = '/(?:\n{0,2})?' . preg_quote($begin, '/') . '.*?' . preg_quote($end, '/') . '(?:\n{0,2})?/s';
+        $current = preg_replace($pattern, "\n", $current);
+        if (!is_string($current)) {
+            return new WP_Error(
+                'wpsuite_theme_css_replace_failed',
+                __('The WP Suite Theme CSS fragment could not be replaced.', 'smartcloud-wpsuite')
+            );
+        }
+
+        $current = trim($current);
+        if ($css !== '') {
+            $fragment = $begin . "\n" . $css . "\n" . $end;
+            $current = $current === '' ? $fragment : $current . "\n\n" . $fragment;
+        }
+
+        $result = wp_update_custom_css_post(
+            $current,
+            array('stylesheet' => WPSUITE_CUSTOM_CSS_STYLESHEET)
+        );
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        return array(
+            'success' => true,
+            'owner' => $owner,
+            'fragment_removed' => $css === '',
+        );
     }
 
     public function init(): void
