@@ -445,16 +445,27 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             }
 
             wp_register_script(
+                'smartcloud-wpsuite-webcrypto-vendor',
+                SMARTCLOUD_WPSUITE_URL . 'assets/js/webcrypto-vendor.min.js',
+                array(),
+                \SmartCloud\WPSuite\Hub\VERSION_WEBCRYPTO,
+                array('in_footer' => true, 'strategy' => 'defer')
+            );
+
+            wp_register_script(
                 'smartcloud-wpsuite-mantine-vendor',
                 SMARTCLOUD_WPSUITE_URL . 'assets/js/mantine-vendor.min.js',
-                array(),
+                array('react', 'react-dom'),
                 VERSION_MANTINE,
                 array('in_footer' => true, 'strategy' => 'defer')
             );
 
             $script_dependencies = array_merge(
                 $this->getAssetDependencies(SMARTCLOUD_WPSUITE_PATH . 'admin.asset.php'),
-                array('smartcloud-wpsuite-mantine-vendor')
+                array(
+                    'smartcloud-wpsuite-webcrypto-vendor',
+                    'smartcloud-wpsuite-mantine-vendor',
+                )
             );
             wp_enqueue_script('smartcloud-wpsuite-admin-script', SMARTCLOUD_WPSUITE_URL . 'admin.js', array_values(array_unique($script_dependencies)), SMARTCLOUD_WPSUITE_VERSION, array('in_footer' => true, 'strategy' => 'defer'));
 
@@ -552,15 +563,15 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
     public function initRestApi()
     {
         $route = array(
-                'methods' => 'POST',
-                'callback' => array($this, 'updateSiteSettings'),
-                'permission_callback' => function () {
-                    if (!current_user_can('manage_options')) {
-                        return new WP_Error('rest_forbidden', 'Forbidden', array('status' => 403));
-                    }
-                    return true;
-                },
-            );
+            'methods' => 'POST',
+            'callback' => array($this, 'updateSiteSettings'),
+            'permission_callback' => function () {
+                if (!current_user_can('manage_options')) {
+                    return new WP_Error('rest_forbidden', 'Forbidden', array('status' => 403));
+                }
+                return true;
+            },
+        );
         register_rest_route(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/v1', '/update-site-settings', $route);
         register_rest_route(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/v1', '/update-site-settings', $route);
     }
