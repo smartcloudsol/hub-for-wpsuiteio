@@ -102,7 +102,8 @@ abstract class Product_Provider_Base
                 (string) $ability['description'],
                 is_array($ability['input_schema'] ?? null) ? $ability['input_schema'] : $this->empty_input_schema(),
                 (string) $ability['method'],
-                is_array($ability['output_schema'] ?? null) ? $ability['output_schema'] : $this->open_output_schema()
+                is_array($ability['output_schema'] ?? null) ? $ability['output_schema'] : $this->open_output_schema(),
+                is_array($ability['meta'] ?? null) ? $ability['meta'] : array()
             );
         }
     }
@@ -132,11 +133,21 @@ abstract class Product_Provider_Base
             return $profiles;
         }
 
+        $extra_by_suffix = array();
+        foreach ($this->extra_abilities() as $extra) {
+            $extra_by_suffix[(string) ($extra['suffix'] ?? '')] = $extra;
+        }
+
         foreach ($this->ability_names() as $ability_name) {
             $suffix = substr($ability_name, strlen($this->ability_namespace));
-            $operation = str_starts_with($suffix, 'materialize-')
+            $extra_meta = is_array($extra_by_suffix[$suffix]['meta'] ?? null)
+                ? $extra_by_suffix[$suffix]['meta']
+                : array();
+            $operation = isset($extra_meta['operation']) && is_string($extra_meta['operation'])
+                ? sanitize_key($extra_meta['operation'])
+                : (str_starts_with($suffix, 'materialize-')
                 ? 'materialize'
-                : (str_starts_with($suffix, 'validate-') ? 'validate' : 'discover');
+                : (str_starts_with($suffix, 'validate-') ? 'validate' : 'discover'));
             $profiles[] = array(
                 'schema_version' => '1.0.0-rc.1',
                 'provider' => array(
@@ -154,7 +165,10 @@ abstract class Product_Provider_Base
                     'component_roles' => array('provider-component'),
                     'operation' => $operation,
                     'runtime_required' => true,
-                    'agent_draft_safe' => true,
+                    'agent_draft_safe' => isset($extra_meta['agent_draft_safe'])
+                        ? (bool) $extra_meta['agent_draft_safe']
+                        : true,
+                    'human_approval_required' => !empty($extra_meta['human_approval_required']),
                 ),
             );
         }
@@ -207,14 +221,14 @@ abstract class Product_Provider_Base
     }
 
     /**
-     * @return array<int,array{suffix:string,description:string,method:string,input_schema?:array,output_schema?:array}>
+     * @return array<int,array{suffix:string,description:string,method:string,input_schema?:array,output_schema?:array,meta?:array}>
      */
     protected function extra_abilities(): array
     {
         return array();
     }
 
-    protected function register_ability(string $suffix, string $description, array $input_schema, string $method, array $output_schema): void
+    protected function register_ability(string $suffix, string $description, array $input_schema, string $method, array $output_schema, array $meta = array()): void
     {
         if (!method_exists($this, $method)) {
             return;
@@ -231,7 +245,7 @@ abstract class Product_Provider_Base
                 'output_schema' => $output_schema,
                 'execute_callback' => array($this, $method),
                 'permission_callback' => array($this, 'check_permission'),
-                'meta' => $this->ability_meta(),
+                'meta' => $this->ability_meta($meta),
             )
         );
 
@@ -240,13 +254,16 @@ abstract class Product_Provider_Base
         }
     }
 
-    protected function ability_meta(): array
+    protected function ability_meta(array $overrides = array()): array
     {
+        $readonly = array_key_exists('readonly', $overrides) ? (bool) $overrides['readonly'] : true;
+        $destructive = array_key_exists('destructive', $overrides) ? (bool) $overrides['destructive'] : false;
+        $idempotent = array_key_exists('idempotent', $overrides) ? (bool) $overrides['idempotent'] : true;
         return array(
             'annotations' => array(
-                'readonly' => true,
-                'destructive' => false,
-                'idempotent' => true,
+                'readonly' => $readonly,
+                'destructive' => $destructive,
+                'idempotent' => $idempotent,
             ),
             'show_in_rest' => false,
             'mcp' => array(
@@ -256,7 +273,13 @@ abstract class Product_Provider_Base
                 'schema_version' => '1.0.0-rc.1',
                 'provider_id' => $this->provider_id,
                 'provider_contract' => $this->contract_version,
-                'agent_draft_safe' => true,
+                'agent_draft_safe' => array_key_exists('agent_draft_safe', $overrides)
+                    ? (bool) $overrides['agent_draft_safe']
+                    : true,
+                'human_approval_required' => !empty($overrides['human_approval_required']),
+                'operation' => isset($overrides['operation']) && is_string($overrides['operation'])
+                    ? sanitize_key($overrides['operation'])
+                    : 'discover',
             ),
         );
     }
