@@ -93,3 +93,7 @@ export const getConfig = async (
   }
   return config;
 };
+
+export { createSiteLocaleRuntime, getSiteLocaleRuntime, normalizeLocale, matchLocale, resolveSiteLocale, resolveComponentLocale, getLocaleDirection, createTranslator } from "./locale";
+export type { SiteLocaleRuntime, SiteLocaleConfig, SiteLocaleSnapshot, LocaleRouteMode, TranslationCatalogs } from "./locale";
+export { loadTranslationCatalogs, type TranslationLoadFailure, type TranslationLoadOptions } from "./translation-loader";

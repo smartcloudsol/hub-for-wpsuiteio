@@ -38,6 +38,8 @@ export {
   useAuthenticator,
   AccountSettings,
   Authenticator,
+  AuthenticatorI18nProvider,
+  useAuthenticatorI18n,
   Button,
   Flex,
   FormField,

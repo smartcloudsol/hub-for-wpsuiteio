@@ -30,5 +30,9 @@ export default defineConfig({
     const dst = path.join(dist, "amplify-vendor.min.js");
 
     if (fs.existsSync(src)) fs.renameSync(src, dst);
+    if (fs.existsSync(dst)) {
+      const output = fs.readFileSync(dst, "utf8").replace(/[\t ]+$/gm, "");
+      fs.writeFileSync(dst, output);
+    }
   },
 });

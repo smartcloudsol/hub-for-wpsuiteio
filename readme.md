@@ -20,7 +20,7 @@ You can find the continuously expanding, detailed documentation at:
 - `wpsuite-blocks/`: Shared Gutenberg blocks and React fallback lifecycle helpers used by plugin block packages
 - `wpsuite-amplify-vendor/`: Shared vendor bundle for Amplify UI dependencies used by plugins (`@smart-cloud/aws-amplify-ui`, `@smart-cloud/aws-amplify-ui-react`, `aws-amplify`)
 - `wpsuite-mantine-vendor/`: Shared Mantine JavaScript and CSS vendor assets used by plugins (`@mantine/...`)
-- `wpsuite-webcrypto-vendor/`: Shared WebCrypto vendor bundle used for signing subscription-related licence and configuration files (`jose` and related dependencies)
+- `wpsuite-webcrypto-vendor/`: Shared JOSE bundle used for signing subscription-related licence and configuration files. It requires native Web Crypto in a supported secure-context browser and does not install a cryptography polyfill.
 - `dist/` and `php/` folders: Contain compiled frontend assets and PHP files that are copied into plugin packages after build
 
 ## Installation and Build Guide
@@ -132,7 +132,10 @@ yarn run build
 
 cd ../wpsuite-webcrypto-vendor
 yarn run build
+yarn run test
 ```
+
+The WebCrypto vendor exposes `WpSuiteJose` and the diagnostic `WpSuiteWebCryptoStatus` global. When native `crypto.subtle` is unavailable it reports an unsupported environment and leaves the browser crypto globals unchanged. Legacy `webcrypto-liner`, `elliptic`, and `asmcrypto.js` fallbacks are intentionally excluded from the distributable bundle.
 
 ### 6. Copy Build Outputs Into Each Plugin
 After the builds complete, copy the shared Hub output into each plugin's `smartcloud-wpsuite/` directory (for example `wp-content/plugins/<plugin>/smartcloud-wpsuite/`):

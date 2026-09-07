@@ -1,38 +1,42 @@
 {
   "name": "@smart-cloud/wpsuite-webcrypto-vendor",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "private": true,
-  "main": "dist/wpsuite-webcrypto-vendor.global.js",
+  "main": "dist/webcrypto-vendor.min.js",
   "scripts": {
-    "build": "tsup --minify"
+    "build": "tsup --minify",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {},
   "peerDependencies": {
-    "asmcrypto.js": "^2.3.2",
-    "elliptic": "^6.6.1",
-    "jose": "^6.2.5",
-    "util": "^0.12.5",
-    "webcrypto-liner": "^1.4.3"
+    "jose": "^6.2.12"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^26.1.2",
-    "@typescript-eslint/eslint-plugin": "^8.65.0",
-    "@typescript-eslint/parser": "^8.65.0",
-    "asmcrypto.js": "^2.3.2",
-    "elliptic": "^6.6.1",
-    "eslint": "^10.8.0",
-    "jose": "^6.2.5",
+    "@types/node": "^26.4.1",
+    "@typescript-eslint/eslint-plugin": "^8.69.0",
+    "@typescript-eslint/parser": "^8.69.0",
+    "eslint": "^10.10.0",
+    "jose": "^6.2.12",
     "ts-node": "^10.9.2",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.65.0",
-    "util": "^0.12.5",
-    "webcrypto-liner": "^1.4.3"
+    "typescript-eslint": "^8.69.0"
   },
   "resolutions": {
+    "@humanfs/node": "0.16.8",
     "brace-expansion": "^5.0.9",
     "esbuild": "^0.28.1",
-    "flatted": "^3.4.4"
+    "flatted": "^3.4.4",
+    "picomatch": "^4.0.5",
+    "rollup": "^4.62.3"
+  },
+  "overrides": {
+    "@humanfs/node": "0.16.8",
+    "brace-expansion": "^5.0.9",
+    "esbuild": "^0.28.1",
+    "flatted": "^3.4.4",
+    "picomatch": "^4.0.5",
+    "rollup": "^4.62.3"
   }
 }

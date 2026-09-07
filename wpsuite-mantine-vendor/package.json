@@ -1,6 +1,6 @@
 {
   "name": "@smart-cloud/wpsuite-mantine-vendor",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "private": true,
   "main": "dist/mantine-vendor.min.js",
   "scripts": {
@@ -13,10 +13,10 @@
     "@mantine/hooks": "^8.3.18",
     "@mantine/modals": "^8.3.18",
     "@mantine/notifications": "^8.3.18",
-    "dayjs": "^1.11.21"
+    "dayjs": "^1.11.23"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.4.1",
     "esbuild-plugin-external-global": "^1.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -24,6 +24,13 @@
     "typescript": "^6.0.3"
   },
   "resolutions": {
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "picomatch": "^4.0.5",
+    "rollup": "^4.62.3"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1",
+    "picomatch": "^4.0.5",
+    "rollup": "^4.62.3"
   }
 }

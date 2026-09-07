@@ -5,7 +5,7 @@ import path from "path";
 
 export default defineConfig({
   entry: {
-    "wpsuite-webcrypto-vendor": "src/polyfill-entry.ts",
+    "wpsuite-webcrypto-vendor": "src/index.ts",
   },
   format: ["iife"],
   globalName: "WpSuiteWebcrypto",
