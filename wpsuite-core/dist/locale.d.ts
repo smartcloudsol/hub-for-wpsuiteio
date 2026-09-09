@@ -53,4 +53,4 @@ export declare function resolveComponentLocale(block: string | null | undefined,
 export declare function createSiteLocaleRuntime(initial?: SiteLocaleConfig): SiteLocaleRuntime;
 export declare function getSiteLocaleRuntime(): SiteLocaleRuntime;
 export type TranslationCatalogs = Record<string, Record<string, string>>;
-export declare function createTranslator(locale: string, catalogs: TranslationCatalogs, custom?: TranslationCatalogs | null, fallback?: string): (key: string, defaultValue?: string) => string;
+export declare function createTranslator(locale: string, catalogs: TranslationCatalogs, custom?: TranslationCatalogs | null, fallback?: string, siteDefaultLocale?: string | undefined): (key: string, defaultValue?: string) => string;

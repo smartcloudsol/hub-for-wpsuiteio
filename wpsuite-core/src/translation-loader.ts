@@ -7,6 +7,16 @@ export interface TranslationLoadOptions {
   onError?: (reason: TranslationLoadFailure) => void;
 }
 
+export interface CustomTranslationLoadOptions extends TranslationLoadOptions {
+  /** Temporary fallback for plugin-specific settings during rolling upgrades. */
+  legacyUrl?: string | null;
+}
+
+const customTranslationRequests = new Map<
+  string,
+  Promise<TranslationCatalogs | null>
+>();
+
 /** Invalid remote dictionaries never prevent a plugin from mounting with built-ins. */
 export async function loadTranslationCatalogs(url?: string | null, options: TranslationLoadOptions = {}): Promise<TranslationCatalogs | null> {
   if (!url) return null;
@@ -45,4 +55,36 @@ export async function loadTranslationCatalogs(url?: string | null, options: Tran
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
+}
+
+/**
+ * Loads the site-wide custom translation catalog.
+ *
+ * The shared site setting is authoritative. `legacyUrl` exists only so plugin
+ * upgrades can retain their previous per-plugin URL until an administrator
+ * saves the new common setting.
+ */
+export async function getCustomTranslations(
+  options: CustomTranslationLoadOptions = {},
+): Promise<TranslationCatalogs | null> {
+  const siteSettings = globalThis.WpSuite?.siteSettings;
+  const url = siteSettings?.customTranslationsUrl?.trim() || options.legacyUrl?.trim();
+  if (!url) return null;
+
+  const cacheVersion = options.cacheVersion ?? siteSettings?.lastUpdate;
+  const cacheKey = JSON.stringify([url, cacheVersion ?? null]);
+  const existing = customTranslationRequests.get(cacheKey);
+  if (existing) return existing;
+
+  const request = loadTranslationCatalogs(url, { ...options, cacheVersion })
+    .then((catalogs) => {
+      if (catalogs === null) customTranslationRequests.delete(cacheKey);
+      return catalogs;
+    })
+    .catch((error: unknown) => {
+      customTranslationRequests.delete(cacheKey);
+      throw error;
+    });
+  customTranslationRequests.set(cacheKey, request);
+  return request;
 }

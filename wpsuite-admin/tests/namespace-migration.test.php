@@ -104,6 +104,9 @@ $source = file_get_contents(dirname(__DIR__) . '/php/index.php');
 expect(is_string($source), 'The shared runtime source must be readable.');
 expect(substr_count($source, 'register_rest_route(') >= 2, 'Canonical and legacy REST routes must both be registered.');
 expect(str_contains($source, 'renderLegacyAdminPage'), 'The legacy admin page alias must remain available.');
+expect(str_contains($source, "'/custom-translations'"), 'The custom translation management route must be registered.');
+expect(str_contains($source, "'custom-translations.json'"), 'The custom translation virtual asset must be registered.');
+expect(str_contains($source, "'customTranslationsDefaultLocale'"), 'The shared translation default locale must be bootstrapped.');
 
 $result = $admin->replaceThemeCssFragment(null, 'smartcloud-agent-starter', ':host { color: red; }');
 expect(is_array($result) && ($result['success'] ?? false), 'A valid managed Theme CSS fragment must be saved.');

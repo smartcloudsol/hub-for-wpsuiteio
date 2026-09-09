@@ -8,11 +8,7 @@ import { createRoot } from "react-dom/client";
 import { getWpSuite } from "@smart-cloud/wpsuite-core";
 
 import Main from "./main";
-
-const production = process.env?.NODE_ENV === "production";
-if (!production) {
-  import("./index.css");
-}
+import "./index.css";
 
 const theme = createTheme({
   respectReducedMotion: true,

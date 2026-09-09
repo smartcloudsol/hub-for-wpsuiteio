@@ -170,7 +170,13 @@ export function getSiteLocaleRuntime(): SiteLocaleRuntime {
 }
 
 export type TranslationCatalogs = Record<string, Record<string, string>>;
-export function createTranslator(locale: string, catalogs: TranslationCatalogs, custom?: TranslationCatalogs | null, fallback = "en") {
+export function createTranslator(
+  locale: string,
+  catalogs: TranslationCatalogs,
+  custom?: TranslationCatalogs | null,
+  fallback?: string,
+  siteDefaultLocale = globalThis.WpSuite?.siteSettings.customTranslationsDefaultLocale,
+) {
   const normalizeCatalogs = (input?: TranslationCatalogs | null) => {
     const result: TranslationCatalogs = {};
     if (!input || typeof input !== "object" || Array.isArray(input)) return result;
@@ -183,8 +189,19 @@ export function createTranslator(locale: string, catalogs: TranslationCatalogs, 
   };
   const base = normalizeCatalogs(catalogs);
   const overrides = normalizeCatalogs(custom);
-  const normalized = normalizeLocale(locale) ?? fallback;
-  const keys = [...new Set([normalized, normalized.split("-")[0], normalizeLocale(fallback) ?? "en", "en"])];
+  const normalized = normalizeLocale(locale) ?? normalizeLocale(fallback) ?? normalizeLocale(siteDefaultLocale) ?? "en";
+  const keys: string[] = [];
+  const addLocale = (candidate?: string) => {
+    const resolved = normalizeLocale(candidate);
+    if (!resolved) return;
+    if (!keys.includes(resolved)) keys.push(resolved);
+    const baseLanguage = resolved.split("-")[0];
+    if (!keys.includes(baseLanguage)) keys.push(baseLanguage);
+  };
+  addLocale(normalized);
+  addLocale(fallback);
+  addLocale(siteDefaultLocale);
+  addLocale("en");
   return (key: string, defaultValue?: string): string => {
     for (const language of keys) {
       for (const dictionary of [overrides[language], base[language]]) {

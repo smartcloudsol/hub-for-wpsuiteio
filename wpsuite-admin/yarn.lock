@@ -4900,10 +4900,10 @@
     lodash "4.18.1"
     tslib "^2.5.2"
 
-"@smart-cloud/wpsuite-core@^2.4.0":
-  version "2.4.0"
-  resolved "https://registry.npmjs.org/@smart-cloud/wpsuite-core/-/wpsuite-core-2.4.0.tgz#0f59e97a71e3ff83836ed593cdab06d3d0fe1adf"
-  integrity sha512-ki9O66YTXeAyP10/usDPLGOpbRX4x7yu/xb2483La7vUB9n0sAU4ITrug+NchUhXj5OnOwWklxwHG+FlUdUysw==
+"@smart-cloud/wpsuite-core@^2.4.2":
+  version "2.4.2"
+  resolved "https://registry.npmjs.org/@smart-cloud/wpsuite-core/-/wpsuite-core-2.4.2.tgz#cd48713784e3faf047126d148ba1e736568c8833"
+  integrity sha512-bm0IcBwRUrB5ckciJyNHZPGhAu2Lsid0gtDdDPEDGiZUtcjs7P+6KTe7Iew175WY+okeburVcXBBwgsFwCJstw==
   dependencies:
     tldts "^7.4.12"
 

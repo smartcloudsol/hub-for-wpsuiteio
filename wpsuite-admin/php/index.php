@@ -17,6 +17,9 @@ if (!defined('ABSPATH')) {
 if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'model.php')) {
     require_once SMARTCLOUD_WPSUITE_PATH . 'model.php';
 }
+if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'custom-translations.php')) {
+    require_once SMARTCLOUD_WPSUITE_PATH . 'custom-translations.php';
+}
 if (
     !class_exists('\\SmartCloud\\WPSuite\\Hub\\Abilities\\Product_Provider_Base', false)
     && file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'abilities.php')
@@ -31,7 +34,7 @@ const WPSUITE_CUSTOM_CSS_STYLESHEET = 'smartcloud-wpsuiteio-theme';
 const WPSUITE_CUSTOM_CSS_SECTION = 'smartcloud_wpsuiteio_theme_css';
 const WPSUITE_VIRTUAL_ASSET_PATH = 'smartcloud-wpsuiteio';
 const WPSUITE_VIRTUAL_ASSET_QUERY_VAR = 'smartcloud_wpsuiteio_asset';
-const WPSUITE_VIRTUAL_ASSET_REWRITE_VERSION = '1';
+const WPSUITE_VIRTUAL_ASSET_REWRITE_VERSION = '2';
 const WPSUITE_LICENSE_OPTION = 'smartcloud-wpsuiteio/license-jws';
 const WPSUITE_CONFIG_OPTION = 'smartcloud-wpsuiteio/config-encrypted';
 const WPSUITE_LICENSE_REFRESH_OPTION = 'smartcloud-wpsuiteio/license-last-refresh';
@@ -42,10 +45,14 @@ const WPSUITE_NAMESPACE_MIGRATION_VERSION = '1';
 class HubAdmin
 {
     private SiteSettings $siteSettings;
+    private CustomTranslationsCatalog $customTranslations;
     private string $legacyThemeCss = '';
 
     public function __construct()
     {
+        $this->customTranslations = new CustomTranslationsCatalog(
+            fn(string $revision): string => $this->getCustomTranslationsAssetUrl($revision)
+        );
         $this->migrateLegacyNamespaceOptions();
         $defaultSiteSettings = new SiteSettings(
             accountId: '',
@@ -73,6 +80,7 @@ class HubAdmin
             renderRecaptchaProvider: (bool) ($values['renderRecaptchaProvider'] ?? true),
         );
         add_filter('smartcloud_wpsuite_replace_theme_css_fragment', array($this, 'replaceThemeCssFragment'), 10, 3);
+        add_filter('smartcloud_wpsuite_custom_translations_url', array($this, 'filterCustomTranslationsUrl'));
         $this->registerRestRoutes();
     }
 
@@ -168,7 +176,7 @@ class HubAdmin
     public function registerVirtualAssetRewrite(): void
     {
         add_rewrite_rule(
-            '^' . WPSUITE_VIRTUAL_ASSET_PATH . '/(theme\.css|lic\.jws|config\.enc)/?$',
+            '^' . WPSUITE_VIRTUAL_ASSET_PATH . '/(theme\.css|lic\.jws|config\.enc|custom-translations\.json)/?$',
             'index.php?' . WPSUITE_VIRTUAL_ASSET_QUERY_VAR . '=$matches[1]',
             'top'
         );
@@ -284,7 +292,7 @@ class HubAdmin
     {
         $asset = (string) get_query_var(WPSUITE_VIRTUAL_ASSET_QUERY_VAR, '');
         $asset = strtok($asset, '?') ?: '';
-        if (!in_array($asset, array('theme.css', 'lic.jws', 'config.enc'), true)) {
+        if (!in_array($asset, array('theme.css', 'lic.jws', 'config.enc', 'custom-translations.json'), true)) {
             return;
         }
 
@@ -292,6 +300,16 @@ class HubAdmin
             $content = wp_get_custom_css(WPSUITE_CUSTOM_CSS_STYLESHEET);
             $content_type = 'text/css; charset=UTF-8';
             $cache_control = 'public, max-age=300, must-revalidate';
+        } elseif ($asset === 'custom-translations.json') {
+            $state = $this->customTranslations->getState();
+            $content = $state['json'];
+            $content_type = 'application/json; charset=UTF-8';
+            $requested_revision = isset($_GET['ver'])
+                ? sanitize_text_field(wp_unslash($_GET['ver']))
+                : '';
+            $cache_control = hash_equals($state['revision'], $requested_revision)
+                ? 'public, max-age=31536000, immutable'
+                : 'public, max-age=300, must-revalidate';
         } elseif ($asset === 'lic.jws') {
             $content = get_option(WPSUITE_LICENSE_OPTION, '');
             $content_type = 'application/jose';
@@ -302,7 +320,9 @@ class HubAdmin
             $cache_control = 'private, no-cache, must-revalidate';
         }
 
-        if (!is_string($content) || ($asset !== 'theme.css' && $content === '')) {
+        if (!is_string($content)
+            || (in_array($asset, array('lic.jws', 'config.enc'), true) && $content === '')
+        ) {
             status_header(404);
             nocache_headers();
             exit;
@@ -314,7 +334,9 @@ class HubAdmin
             : '';
         if (hash_equals($etag, $request_etag)) {
             status_header(304);
+            header('Cache-Control: ' . $cache_control);
             header('ETag: ' . $etag);
+            header('X-Content-Type-Options: nosniff');
             exit;
         }
 
@@ -351,6 +373,10 @@ class HubAdmin
                 'useRecaptchaNet' => $this->siteSettings->useRecaptchaNet,
                 'useRecaptchaEnterprise' => $this->siteSettings->useRecaptchaEnterprise,
                 'renderRecaptchaProvider' => $this->siteSettings->renderRecaptchaProvider,
+                'customTranslationsUrl' => $this->customTranslations->hasTranslations()
+                    ? $this->customTranslations->getAssetUrl()
+                    : '',
+                'customTranslationsDefaultLocale' => $this->customTranslations->getState()['defaultLocale'] ?? '',
                 'hubInstalled' => true,
             ),
         );
@@ -574,6 +600,26 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         );
         register_rest_route(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/v1', '/update-site-settings', $route);
         register_rest_route(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/v1', '/update-site-settings', $route);
+
+        $translation_routes = array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this->customTranslations, 'getRestResponse'),
+                'permission_callback' => array($this->customTranslations, 'checkPermission'),
+            ),
+            array(
+                'methods' => 'PUT',
+                'callback' => array($this->customTranslations, 'putRestResponse'),
+                'permission_callback' => array($this->customTranslations, 'checkPermission'),
+            ),
+            array(
+                'methods' => 'DELETE',
+                'callback' => array($this->customTranslations, 'deleteRestResponse'),
+                'permission_callback' => array($this->customTranslations, 'checkPermission'),
+            ),
+        );
+        register_rest_route(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/v1', '/custom-translations', $translation_routes);
+        register_rest_route(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/v1', '/custom-translations', $translation_routes);
     }
 
     public function updateSiteSettings(WP_REST_Request $request)
@@ -660,6 +706,24 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         }
 
         return home_url('/?' . WPSUITE_VIRTUAL_ASSET_QUERY_VAR . '=');
+    }
+
+    public function getCustomTranslationsAssetUrl(?string $revision = null): string
+    {
+        $revision = $revision ?? $this->customTranslations->getState()['revision'];
+        return add_query_arg(
+            'ver',
+            $revision,
+            $this->getVirtualAssetBaseUrl() . 'custom-translations.json'
+        );
+    }
+
+    public function filterCustomTranslationsUrl(mixed $url): ?string
+    {
+        unset($url);
+        return $this->customTranslations->hasTranslations()
+            ? $this->customTranslations->getAssetUrl()
+            : null;
     }
 
     public function getThemeCssUrl(): ?string

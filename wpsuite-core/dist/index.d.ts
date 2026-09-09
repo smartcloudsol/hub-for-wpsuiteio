@@ -46,9 +46,11 @@ export interface SiteSettings {
     useRecaptchaNet?: boolean;
     useRecaptchaEnterprise?: boolean;
     renderRecaptchaProvider?: boolean;
+    customTranslationsUrl?: string;
+    customTranslationsDefaultLocale?: string;
 }
 export type SubscriptionType = "PROFESSIONAL" | "AGENCY";
 export declare const getConfig: (plugin: string) => Promise<Record<string, unknown> | null>;
 export { createSiteLocaleRuntime, getSiteLocaleRuntime, normalizeLocale, matchLocale, resolveSiteLocale, resolveComponentLocale, getLocaleDirection, createTranslator } from "./locale";
 export type { SiteLocaleRuntime, SiteLocaleConfig, SiteLocaleSnapshot, LocaleRouteMode, TranslationCatalogs } from "./locale";
-export { loadTranslationCatalogs, type TranslationLoadFailure, type TranslationLoadOptions } from "./translation-loader";
+export { getCustomTranslations, loadTranslationCatalogs, type CustomTranslationLoadOptions, type TranslationLoadFailure, type TranslationLoadOptions, } from "./translation-loader";

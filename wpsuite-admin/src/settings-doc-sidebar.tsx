@@ -132,6 +132,38 @@ export function DocSidebar({ opened, close, scrollToId }: DocSidebarProps) {
           </List.Item>
         </List>
 
+        <Title order={3} mt="md" id="custom-translations">
+          Custom translations
+        </Title>
+        <Text>
+          The catalog editor stores one shared set of label overrides for all
+          WP Suite plugins on this site. Rows are original source strings and
+          columns are locales. A missing cell uses the plugin&apos;s built-in
+          translation or source text; an explicitly empty cell intentionally
+          renders an empty label.
+        </Text>
+        <Text>
+          Choose the default locale used after any component-specific fallback
+          and before English. Its column stays first in the editor, and new
+          source keys are initialized in that column.
+        </Text>
+        <Text>
+          Search source keys and translated values, narrow missing entries to a
+          locale, sort by any column, and choose how many rows appear per page.
+        </Text>
+        <Text>
+          Cell edits stay in the browser until you choose "Save all changes".
+          Enter applies a cell edit to the draft, Shift+Enter inserts a line,
+          and Escape cancels the active edit. Discard changes restores the last
+          saved catalog.
+        </Text>
+        <Text>
+          JSON imports are validated in full before the draft changes. Use
+          Initialize for an empty catalog, or merge while either keeping or
+          overwriting conflicting saved values. The saved JSON download is the
+          same public catalog consumed by WP Suite components.
+        </Text>
+
         {/* ── reCAPTCHA Site Key ──────────────────────────────────── */}
         <Title order={3} mt="md" id="recaptcha-site-key">
           Google reCAPTCHA (v3) Site Key

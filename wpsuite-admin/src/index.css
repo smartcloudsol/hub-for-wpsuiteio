@@ -1,0 +1,7 @@
+#smartcloud-wpsuite-admin input.mantine-Checkbox-input[type="checkbox"]::before,
+#smartcloud-wpsuite-admin input.mantine-Checkbox-input[type="checkbox"]::after {
+  content: none !important;
+  display: none !important;
+  visibility: hidden !important;
+  background: none !important;
+}

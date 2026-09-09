@@ -21,6 +21,7 @@ import { __ } from "@wordpress/i18n";
 import { getWpSuite, TEXT_DOMAIN } from "@smart-cloud/wpsuite-core";
 
 import { DocSidebar } from "./settings-doc-sidebar";
+import { TranslationCatalogEditor } from "./translation-catalog/translation-catalog-editor";
 
 const wpsuite = getWpSuite();
 const themeCssEditorUrl = (
@@ -173,6 +174,8 @@ export default function SettingsScreen() {
           </Group>
         </Stack>
       </Card>
+
+      <TranslationCatalogEditor onOpenHelp={() => openInfo("custom-translations")} />
 
       <Card withBorder radius="lg" p="lg">
         <Text fw={600} mb="md">

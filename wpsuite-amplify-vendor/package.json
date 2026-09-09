@@ -8,9 +8,9 @@
   },
   "dependencies": {
     "@aws-amplify/core": "^6.18.0",
-    "@smart-cloud/aws-amplify-ui": "6.15.7-preview.1",
-    "@smart-cloud/aws-amplify-ui-react": "6.15.7-preview.1",
-    "@smart-cloud/aws-amplify-ui-react-core": "3.6.7-preview.1",
+    "@smart-cloud/aws-amplify-ui": "6.15.7-preview.2",
+    "@smart-cloud/aws-amplify-ui-react": "6.15.7-preview.2",
+    "@smart-cloud/aws-amplify-ui-react-core": "3.6.7-preview.2",
     "aws-amplify": "^6.20.0"
   },
   "devDependencies": {

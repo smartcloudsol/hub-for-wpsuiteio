@@ -51,6 +51,37 @@ test("translators isolate locale and custom dictionaries across instances, remov
   assert.equal(hu("My authored sentence"), "My authored sentence");
 });
 
+test("translator fallback order is explicit fallback, site default, then English", () => {
+  const catalogs = {
+    en: { Shared: "English", EnglishOnly: "English only" },
+    de: { Shared: "Deutsch" },
+    fr: { Shared: "Français", SiteOnly: "Valeur du site" },
+  };
+  const explicit = createTranslator("hu-HU", catalogs, null, "de-DE", "fr-FR");
+  assert.equal(explicit("Shared"), "Deutsch");
+  assert.equal(explicit("SiteOnly"), "Valeur du site");
+  assert.equal(explicit("EnglishOnly"), "English only");
+
+  const site = createTranslator("hu-HU", catalogs, null, undefined, "fr-FR");
+  assert.equal(site("Shared"), "Français");
+  assert.equal(site("EnglishOnly"), "English only");
+
+  const originalWpSuite = globalThis.WpSuite;
+  try {
+    globalThis.WpSuite = {
+      siteSettings: { customTranslationsDefaultLocale: "fr-FR" },
+      nonce: "",
+      restUrl: "",
+      uploadUrl: "",
+      view: "settings",
+      plugins: {},
+    };
+    assert.equal(createTranslator("hu-HU", catalogs)("Shared"), "Français");
+  } finally {
+    globalThis.WpSuite = originalWpSuite;
+  }
+});
+
 test("active provider beats stale preference on neutral routes, including cookie-less providers", () => {
   assert.equal(resolveSiteLocale({ routeMode: "app" }, { providerLocale: "hu", preferredLocale: "de", browserLocales: ["en"] }).locale, "hu");
   assert.equal(resolveSiteLocale({ routeMode: "app", providerLocale: "hu-HU" }, { browserLocales: ["en"] }).locale, "hu-HU");
