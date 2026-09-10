@@ -135,7 +135,7 @@ yarn run build
 yarn run test
 ```
 
-The WebCrypto vendor exposes `WpSuiteJose` and the diagnostic `WpSuiteWebCryptoStatus` global. When native `crypto.subtle` is unavailable it reports an unsupported environment and leaves the browser crypto globals unchanged. Legacy `webcrypto-liner`, `elliptic`, and `asmcrypto.js` fallbacks are intentionally excluded from the distributable bundle.
+The WebCrypto vendor exposes `WpSuiteJose` and the diagnostic `WpSuiteWebCryptoStatus` global. Native `crypto.subtle` is always preferred. On insecure origins where the browser still exposes an extensible `crypto` object without `subtle`, the vendor installs a deliberately narrow fallback for the ES256 verification and AES-GCM decryption operations required to resolve WP Suite subscriber configuration. The fallback uses exact-pinned Noble packages and does not restore the legacy `webcrypto-liner`, `elliptic`, or `asmcrypto.js` implementations.
 
 ### 6. Copy Build Outputs Into Each Plugin
 After the builds complete, copy the shared Hub output into each plugin's `smartcloud-wpsuite/` directory (for example `wp-content/plugins/<plugin>/smartcloud-wpsuite/`):

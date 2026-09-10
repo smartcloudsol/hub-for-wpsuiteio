@@ -27,7 +27,7 @@ if (
     require_once SMARTCLOUD_WPSUITE_PATH . 'abilities.php';
 }
 
-const VERSION_WEBCRYPTO = '1.1.5';
+const VERSION_WEBCRYPTO = '1.1.8';
 const VERSION_AMPLIFY = '1.1.9';
 const VERSION_MANTINE = '1.0.8';
 const WPSUITE_CUSTOM_CSS_STYLESHEET = 'smartcloud-wpsuiteio-theme';

@@ -1,6 +1,6 @@
 {
   "name": "@smart-cloud/wpsuite-amplify-vendor",
-  "version": "1.1.10",
+  "version": "1.1.11",
   "private": true,
   "main": "dist/amplify-vendor.min.js",
   "scripts": {
@@ -8,9 +8,9 @@
   },
   "dependencies": {
     "@aws-amplify/core": "^6.18.0",
-    "@smart-cloud/aws-amplify-ui": "6.15.7-preview.2",
-    "@smart-cloud/aws-amplify-ui-react": "6.15.7-preview.2",
-    "@smart-cloud/aws-amplify-ui-react-core": "3.6.7-preview.2",
+    "@smart-cloud/aws-amplify-ui": "6.15.7-preview.3",
+    "@smart-cloud/aws-amplify-ui-react": "6.15.7-preview.3",
+    "@smart-cloud/aws-amplify-ui-react-core": "3.6.7-preview.3",
     "aws-amplify": "^6.20.0"
   },
   "devDependencies": {
