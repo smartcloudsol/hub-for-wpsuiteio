@@ -306,6 +306,27 @@ final class CustomTranslationsCatalog
                 }
             }
 
+            if ($changed) {
+                $old_asset_url = ($this->assetUrlProvider)($current['revision']);
+                $new_asset_url = ($this->assetUrlProvider)($next['revision']);
+                do_action('smartcloud_static_publisher_resource_changed_v1', array(
+                    'contractVersion' => 1,
+                    'provider' => 'smartcloud-wpsuite-custom-translations',
+                    'blogId' => (int) get_current_blog_id(),
+                    'postId' => 0,
+                    'postType' => '',
+                    'renderUrls' => array($new_asset_url),
+                    'deleteUrls' => array(),
+                ));
+                do_action(
+                    'smartcloud_wpsuite_custom_translations_changed_v1',
+                    $current['revision'],
+                    $next['revision'],
+                    $old_asset_url,
+                    $new_asset_url
+                );
+            }
+
             return $this->stateResponse($next, $changed);
         } finally {
             $this->releaseLock($lock_token);
@@ -518,6 +539,7 @@ final class CustomTranslationsCatalog
     {
         return new WP_Error(
             'wpsuite_translations_invalid_catalog',
+            // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText -- Every caller supplies a bounded internal validation message, never request data.
             __($message, 'smartcloud-wpsuite'),
             array('status' => $status)
         );

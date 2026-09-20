@@ -8,6 +8,7 @@ $GLOBALS['wpsuite_test_options'] = array();
 $GLOBALS['wpsuite_test_autoload'] = array();
 $GLOBALS['wpsuite_test_updates'] = array();
 $GLOBALS['wpsuite_test_can_manage'] = true;
+$GLOBALS['wpsuite_test_actions'] = array();
 
 class WP_Error
 {
@@ -123,6 +124,16 @@ function wp_json_encode(mixed $value, int $flags = 0): string|false
 function is_wp_error(mixed $value): bool
 {
     return $value instanceof WP_Error;
+}
+
+function get_current_blog_id(): int
+{
+    return 7;
+}
+
+function do_action(string $hook, mixed ...$args): void
+{
+    $GLOBALS['wpsuite_test_actions'][] = array($hook, $args);
 }
 
 function expect(bool $condition, string $message): void
@@ -263,14 +274,27 @@ expect(
     'The default locale option must disable autoload.'
 );
 expect(!isset($GLOBALS['wpsuite_test_options'][WPSUITE_CUSTOM_TRANSLATIONS_LOCK]), 'The write lock must be released.');
+expect(count($GLOBALS['wpsuite_test_actions']) === 2, 'A changed catalog must emit resource and catalog change actions.');
+expect(
+    $GLOBALS['wpsuite_test_actions'][0][0] === 'smartcloud_static_publisher_resource_changed_v1'
+        && $GLOBALS['wpsuite_test_actions'][0][1][0]['blogId'] === 7
+        && $GLOBALS['wpsuite_test_actions'][0][1][0]['renderUrls'] === array($saved->data['assetUrl']),
+    'The Static Publisher change action must target only the new versioned catalog URL.'
+);
+expect(
+    $GLOBALS['wpsuite_test_actions'][1][0] === 'smartcloud_wpsuite_custom_translations_changed_v1',
+    'The catalog change action must be emitted for dependent resources.'
+);
 
 $update_count = count($GLOBALS['wpsuite_test_updates']);
+$action_count = count($GLOBALS['wpsuite_test_actions']);
 $idempotent = $store->putRestResponse(
     new WP_REST_Request($body, array('If-Match' => $saved->data['revision']))
 );
 expect($idempotent instanceof WP_REST_Response, 'An idempotent save must succeed.');
 expect($idempotent->data['changed'] === false, 'An identical save must be reported as unchanged.');
 expect(count($GLOBALS['wpsuite_test_updates']) === $update_count, 'An identical save must not rewrite the option.');
+expect(count($GLOBALS['wpsuite_test_actions']) === $action_count, 'An identical save must not emit change actions.');
 
 $legacy_body = json_encode(array('catalog' => get_object_vars($saved->data['catalog'])), JSON_UNESCAPED_UNICODE);
 expect(is_string($legacy_body), 'The legacy catalog-only payload must encode.');

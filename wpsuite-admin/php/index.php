@@ -304,8 +304,8 @@ class HubAdmin
             $state = $this->customTranslations->getState();
             $content = $state['json'];
             $content_type = 'application/json; charset=UTF-8';
-            $requested_revision = isset($_GET['ver'])
-                ? sanitize_text_field(wp_unslash($_GET['ver']))
+            $requested_revision = isset($_GET['ver']) // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only cache selector for a virtual asset; no state is changed.
+                ? sanitize_text_field(wp_unslash($_GET['ver'])) // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- See the read-only cache selector above.
                 : '';
             $cache_control = hash_equals($state['revision'], $requested_revision)
                 ? 'public, max-age=31536000, immutable'
