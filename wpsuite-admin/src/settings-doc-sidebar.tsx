@@ -118,6 +118,14 @@ export function DocSidebar({ opened, close, scrollToId }: DocSidebarProps) {
           the published value through a virtual <Code>theme.css</Code> URL for
           its components.
         </Text>
+        <Text>
+          Add one absolute HTTP(S) or site-relative stylesheet URL per line in
+          Additional stylesheet URLs. Relative paths resolve from the current
+          WordPress site root, including its multisite subdirectory. These
+          stylesheets load after the shared Theme CSS in supported frontend
+          shadow roots. External stylesheets must be trusted and accessible to
+          visitors; their contents are not validated by the WordPress CSS editor.
+        </Text>
         <List size="sm" spacing="sm" mt="xs">
           <List.Item>
             Prefer stable component selectors that WPSuite controls, such as

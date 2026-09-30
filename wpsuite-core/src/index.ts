@@ -79,6 +79,7 @@ export interface SiteSettings {
   renderRecaptchaProvider?: boolean;
   customTranslationsUrl?: string;
   customTranslationsDefaultLocale?: string;
+  themeCssUrls?: string[];
 }
 
 export type SubscriptionType = "PROFESSIONAL" | "AGENCY";

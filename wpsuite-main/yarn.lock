@@ -3752,10 +3752,10 @@
   dependencies:
     "@sinonjs/commons" "^3.0.1"
 
-"@smart-cloud/wpsuite-core@^2.4.2":
-  version "2.4.2"
-  resolved "https://registry.npmjs.org/@smart-cloud/wpsuite-core/-/wpsuite-core-2.4.2.tgz#cd48713784e3faf047126d148ba1e736568c8833"
-  integrity sha512-bm0IcBwRUrB5ckciJyNHZPGhAu2Lsid0gtDdDPEDGiZUtcjs7P+6KTe7Iew175WY+okeburVcXBBwgsFwCJstw==
+"@smart-cloud/wpsuite-core@^2.4.3":
+  version "2.4.3"
+  resolved "https://registry.npmjs.org/@smart-cloud/wpsuite-core/-/wpsuite-core-2.4.3.tgz#69d052a512e1d4a1a35729296d464efbe89bf74e"
+  integrity sha512-4Dv8U3inJxVUZvKE/Oq74AU/IkwTOeiHCu8i7fV7aaqQvlebImhq3fwEo75NNrfKIhsBR9jHkVUVyUe/P9HFGQ==
   dependencies:
     tldts "^7.4.12"
 

@@ -78,6 +78,7 @@ class HubAdmin
             useRecaptchaNet: (bool) ($values['useRecaptchaNet'] ?? false),
             useRecaptchaEnterprise: (bool) ($values['useRecaptchaEnterprise'] ?? false),
             renderRecaptchaProvider: (bool) ($values['renderRecaptchaProvider'] ?? true),
+            themeCssUrls: is_array($values['themeCssUrls'] ?? null) ? $values['themeCssUrls'] : array(),
         );
         add_filter('smartcloud_wpsuite_replace_theme_css_fragment', array($this, 'replaceThemeCssFragment'), 10, 3);
         add_filter('smartcloud_wpsuite_custom_translations_url', array($this, 'filterCustomTranslationsUrl'));
@@ -163,6 +164,7 @@ class HubAdmin
         add_action('admin_init', array($this, 'migrateLegacyStorage'));
         add_action('admin_menu', array($this, 'mergeLegacyAdminMenu'), PHP_INT_MAX);
         add_filter('smartcloud_wpsuite_theme_css_url', array($this, 'filterThemeCssUrl'));
+        add_filter('smartcloud_wpsuite_theme_css_urls', array($this, 'filterThemeCssUrls'));
         add_action('wp_head', array($this, 'addMainScript', ), 1);
         add_action('admin_head', array($this, 'addMainScript'), 1);
 
@@ -373,6 +375,7 @@ class HubAdmin
                 'useRecaptchaNet' => $this->siteSettings->useRecaptchaNet,
                 'useRecaptchaEnterprise' => $this->siteSettings->useRecaptchaEnterprise,
                 'renderRecaptchaProvider' => $this->siteSettings->renderRecaptchaProvider,
+                'themeCssUrls' => $this->siteSettings->themeCssUrls,
                 'customTranslationsUrl' => $this->customTranslations->hasTranslations()
                     ? $this->customTranslations->getAssetUrl()
                     : '',
@@ -629,6 +632,13 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             return new WP_Error('wpsuite_invalid_settings', 'The settings payload must be a JSON object.', array('status' => 400));
         }
 
+        $theme_css_urls = $this->normalizeThemeCssUrls(
+            $settings_param->themeCssUrls ?? $this->siteSettings->themeCssUrls
+        );
+        if (is_wp_error($theme_css_urls)) {
+            return $theme_css_urls;
+        }
+
         if (!empty($settings_param->accountId)) {
             $this->siteSettings = new SiteSettings(
                 accountId: sanitize_text_field((string) $settings_param->accountId),
@@ -639,7 +649,8 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 reCaptchaPublicKey: sanitize_text_field((string) ($settings_param->reCaptchaPublicKey ?? '')),
                 useRecaptchaNet: (bool) ($settings_param->useRecaptchaNet ?? false),
                 useRecaptchaEnterprise: (bool) ($settings_param->useRecaptchaEnterprise ?? false),
-                renderRecaptchaProvider: (bool) ($settings_param->renderRecaptchaProvider ?? true)
+                renderRecaptchaProvider: (bool) ($settings_param->renderRecaptchaProvider ?? true),
+                themeCssUrls: $theme_css_urls
             );
 
             $this->writeSiteSettingsOptions($this->siteSettings);
@@ -653,7 +664,8 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 reCaptchaPublicKey: sanitize_text_field((string) ($settings_param->reCaptchaPublicKey ?? '')),
                 useRecaptchaNet: (bool) ($settings_param->useRecaptchaNet ?? false),
                 useRecaptchaEnterprise: (bool) ($settings_param->useRecaptchaEnterprise ?? false),
-                renderRecaptchaProvider: (bool) ($settings_param->renderRecaptchaProvider ?? true)
+                renderRecaptchaProvider: (bool) ($settings_param->renderRecaptchaProvider ?? true),
+                themeCssUrls: $theme_css_urls
             );
             $this->writeSiteSettingsOptions($this->siteSettings);
         }
@@ -743,6 +755,62 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
     public function filterThemeCssUrl(mixed $url): ?string
     {
         return $this->getThemeCssUrl();
+    }
+
+    /** @return string[] */
+    public function filterThemeCssUrls(mixed $urls): array
+    {
+        unset($urls);
+        $urls = $this->siteSettings->themeCssUrls;
+        $theme_url = $this->getThemeCssUrl();
+        return $theme_url === null ? $urls : array_values(array_unique(array_merge(array($theme_url), $urls)));
+    }
+
+    /**
+     * Resolve relative stylesheets against the current site's root, so deep links
+     * and subdirectory multisite pages receive the same stylesheet URLs.
+     *
+     * @return string[]|WP_Error
+     */
+    private function normalizeThemeCssUrls(mixed $input): array|WP_Error
+    {
+        if (!is_array($input) || count($input) > 20) {
+            return new WP_Error('wpsuite_invalid_theme_css_urls', 'Provide at most 20 stylesheet URLs.', array('status' => 400));
+        }
+
+        $result = array();
+        foreach ($input as $value) {
+            if (!is_string($value)) {
+                return new WP_Error('wpsuite_invalid_theme_css_urls', 'Every stylesheet URL must be a string.', array('status' => 400));
+            }
+            $url = trim($value);
+            if ($url === '') {
+                continue;
+            }
+            if (strlen($url) > 2048 || preg_match('/[\\x00-\\x20\\x7f<>`\\\\]/', $url) || str_starts_with($url, '//')) {
+                return new WP_Error('wpsuite_invalid_theme_css_urls', 'A stylesheet URL is invalid.', array('status' => 400));
+            }
+            if (!preg_match('~^https?://~i', $url)) {
+                $path = explode('?', $url, 2)[0];
+                if (preg_match('~^[a-z][a-z0-9+.-]*:~i', $url)
+                    || preg_match('~(?:^|/)\.\.(?:/|$)~', rawurldecode($path))
+                ) {
+                    return new WP_Error('wpsuite_invalid_theme_css_urls', 'A relative stylesheet URL is invalid.', array('status' => 400));
+                }
+                $url = home_url('/' . ltrim($url, '/'));
+            }
+            $parts = wp_parse_url($url);
+            if (!is_array($parts)
+                || !in_array(strtolower((string) ($parts['scheme'] ?? '')), array('http', 'https'), true)
+                || empty($parts['host'])
+                || isset($parts['user'])
+                || isset($parts['pass'])
+            ) {
+                return new WP_Error('wpsuite_invalid_theme_css_urls', 'Only HTTP(S) stylesheet URLs without credentials are allowed.', array('status' => 400));
+            }
+            $result[] = esc_url_raw($url, array('http', 'https'));
+        }
+        return array_values(array_unique($result));
     }
 
     private function normalizeThemeCssValue(mixed $value): string

@@ -48,6 +48,7 @@ export interface SiteSettings {
     renderRecaptchaProvider?: boolean;
     customTranslationsUrl?: string;
     customTranslationsDefaultLocale?: string;
+    themeCssUrls?: string[];
 }
 export type SubscriptionType = "PROFESSIONAL" | "AGENCY";
 export declare const getConfig: (plugin: string) => Promise<Record<string, unknown> | null>;

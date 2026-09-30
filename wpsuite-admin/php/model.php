@@ -22,6 +22,8 @@ class SiteSettings
         public bool $useRecaptchaNet = false,
         public bool $useRecaptchaEnterprise = false,
         public bool $renderRecaptchaProvider = true,
+        /** @var string[] Additional stylesheets loaded after WP Suite Theme CSS. */
+        public array $themeCssUrls = array(),
     ) {
     }
 }

@@ -7,6 +7,7 @@ import {
   Stack,
   Text,
   TextInput,
+  Textarea,
   Checkbox,
   ActionIcon,
 } from "@mantine/core";
@@ -68,6 +69,9 @@ export default function SettingsScreen() {
       wpsuite?.siteSettings?.renderRecaptchaProvider ?? true,
   });
   const [saving, setSaving] = useState<boolean>(false);
+  const [themeCssUrls, setThemeCssUrls] = useState<string>(
+    ((wpsuite?.siteSettings as { themeCssUrls?: string[] } | undefined)?.themeCssUrls ?? []).join("\n"),
+  );
   const [opened, { open, close }] = useDisclosure(false);
   const [scrollToId, setScrollToId] = useState<string>("");
 
@@ -82,6 +86,7 @@ export default function SettingsScreen() {
       const payload = {
         ...currentSiteSettings,
         ...settings,
+        themeCssUrls: themeCssUrls.split(/\r?\n/).map((url) => url.trim()).filter(Boolean),
       };
 
       const res = await fetch(`${wpsuite!.restUrl}/update-site-settings`, {
@@ -94,7 +99,10 @@ export default function SettingsScreen() {
         credentials: "same-origin",
       });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.message || `HTTP ${res.status}`);
+      }
 
       if (wpsuite) {
         wpsuite.siteSettings = payload;
@@ -114,7 +122,7 @@ export default function SettingsScreen() {
     } finally {
       setSaving(false);
     }
-  }, [settings]);
+  }, [settings, themeCssUrls]);
 
   const openInfo = useCallback(
     (targetScrollToId: string) => {
@@ -172,6 +180,16 @@ export default function SettingsScreen() {
               <IconHelp size={16} />
             </ActionIcon>
           </Group>
+          <Textarea
+            label={__("Additional stylesheet URLs", TEXT_DOMAIN)}
+            description={__("One absolute or site-relative CSS URL per line. Loaded after WP Suite Theme CSS inside each supported frontend component shadow root.", TEXT_DOMAIN)}
+            placeholder={"/wp-content/themes/example/assets/components.css\nhttps://cdn.example.com/components.css"}
+            minRows={3}
+            autosize
+            disabled={saving}
+            value={themeCssUrls}
+            onChange={(event) => setThemeCssUrls(event.currentTarget.value)}
+          />
         </Stack>
       </Card>
 

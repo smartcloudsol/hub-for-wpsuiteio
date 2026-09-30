@@ -21,6 +21,13 @@ $GLOBALS['wpsuite_test_options'] = array(
 $GLOBALS['wpsuite_test_filters'] = array();
 $GLOBALS['wpsuite_test_custom_css'] = '/* operator CSS */';
 
+class WP_Error
+{
+    public function __construct(public string $code = '', public string $message = '', public array $data = array())
+    {
+    }
+}
+
 function add_filter(string $hook, mixed $callback, int $priority = 10, int $accepted_args = 1): bool
 {
     $GLOBALS['wpsuite_test_filters'][$hook] = array($callback, $priority, $accepted_args);
@@ -64,6 +71,31 @@ function update_option(string $key, mixed $value, mixed $autoload = null): bool
     return true;
 }
 
+function home_url(string $path = ''): string
+{
+    return 'https://example.com/subsite' . $path;
+}
+
+function trailingslashit(string $value): string
+{
+    return rtrim($value, '/') . '/';
+}
+
+function add_query_arg(string $key, string $value, string $url): string
+{
+    return $url . (str_contains($url, '?') ? '&' : '?') . rawurlencode($key) . '=' . rawurlencode($value);
+}
+
+function wp_parse_url(string $url): array|false
+{
+    return parse_url($url);
+}
+
+function esc_url_raw(string $url, array $protocols = array()): string
+{
+    return $url;
+}
+
 function expect(bool $condition, string $message): void
 {
     if (!$condition) {
@@ -75,6 +107,22 @@ function expect(bool $condition, string $message): void
 require_once dirname(__DIR__) . '/php/index.php';
 
 $admin = new HubAdmin();
+$normalize_urls = new ReflectionMethod(HubAdmin::class, 'normalizeThemeCssUrls');
+$urls = $normalize_urls->invoke($admin, array('/assets/shared.css', 'css/components.css', 'https://cdn.example.org/ui.css?v=2', '/assets/shared.css'));
+expect(
+    $urls === array(
+        'https://example.com/subsite/assets/shared.css',
+        'https://example.com/subsite/css/components.css',
+        'https://cdn.example.org/ui.css?v=2',
+    ),
+    'Stylesheet URLs must resolve against the current site and preserve order without duplicates.'
+);
+expect(is_wp_error($normalize_urls->invoke($admin, array('javascript:alert(1)'))), 'Script URLs must be rejected.');
+expect(is_wp_error($normalize_urls->invoke($admin, array('//other.example.org/x.css'))), 'Protocol-relative URLs must be rejected.');
+expect(is_wp_error($normalize_urls->invoke($admin, array('../escape.css'))), 'Parent-relative URLs must be rejected.');
+expect(is_wp_error($normalize_urls->invoke($admin, array('/css/%2e%2e/escape.css'))), 'Encoded parent-relative URLs must be rejected.');
+expect(is_wp_error($normalize_urls->invoke($admin, array('https://user:pass@example.org/x.css'))), 'Credential-bearing URLs must be rejected.');
+expect(is_wp_error($normalize_urls->invoke($admin, array('https://example.org/</script>.css'))), 'HTML-sensitive URL markup must be rejected.');
 expect(
     isset($GLOBALS['wpsuite_test_filters']['smartcloud_wpsuite_replace_theme_css_fragment']),
     'The managed Theme CSS fragment contract must be registered.'
@@ -99,6 +147,14 @@ expect(
     $GLOBALS['wpsuite_test_options']['hub-for-wpsuiteio/site-settings'] === $settings,
     'Legacy site settings must remain synchronized during rolling upgrades.'
 );
+
+$settings->themeCssUrls = array('https://example.com/subsite/assets/shared.css', 'https://cdn.example.org/ui.css');
+$settings_property = new ReflectionProperty(HubAdmin::class, 'siteSettings');
+$settings_property->setValue($admin, $settings);
+$ordered_stylesheets = $admin->filterThemeCssUrls(array());
+expect(count($ordered_stylesheets) === 3, 'The shared stylesheet filter must include managed CSS and all additional URLs.');
+expect($ordered_stylesheets[0] === $admin->getThemeCssUrl(), 'Managed Theme CSS must load before additional stylesheets.');
+expect(array_slice($ordered_stylesheets, 1) === $settings->themeCssUrls, 'Additional stylesheets must preserve their configured order.');
 
 $source = file_get_contents(dirname(__DIR__) . '/php/index.php');
 expect(is_string($source), 'The shared runtime source must be readable.');
