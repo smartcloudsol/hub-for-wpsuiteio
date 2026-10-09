@@ -12,3 +12,14 @@
 }
 .wpsuite-doc-sidebar li::marker { color: #646970; }
 .wpsuite-doc-sidebar .mantine-List-itemWrapper { display: inline; }
+
+.wpsuite-doc-sidebar .wpsuite-help-active {
+  background-color: #fff1a8;
+  color: #1d2327;
+  border-radius: 3px;
+  padding: 4px 6px;
+  transition: background-color 180ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wpsuite-doc-sidebar .wpsuite-help-active { transition: none; }
+}

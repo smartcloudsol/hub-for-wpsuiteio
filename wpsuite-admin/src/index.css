@@ -1,7 +1,52 @@
 #smartcloud-wpsuite-admin input.mantine-Checkbox-input[type="checkbox"]::before,
+.wpsuite-reset-modal input.mantine-Checkbox-input[type="checkbox"]::before,
+.wpsuite-reset-modal input.mantine-Checkbox-input[type="checkbox"]::after,
 #smartcloud-wpsuite-admin input.mantine-Checkbox-input[type="checkbox"]::after {
   content: none !important;
   display: none !important;
   visibility: hidden !important;
   background: none !important;
+}
+
+.wpsuite-reset-modal input.mantine-Checkbox-input[type="checkbox"] {
+  display: block;
+  width: var(--checkbox-size);
+  min-width: var(--checkbox-size);
+  height: var(--checkbox-size);
+  margin: 0;
+}
+.wpsuite-reset-modal input.mantine-Checkbox-input[type="checkbox"]:checked:not(:disabled) {
+  background-color: var(--checkbox-color);
+  border-color: var(--checkbox-color);
+}
+
+/* WordPress admin styles must not pull Mantine labels above the button centre. */
+:is(#smartcloud-wpsuite-admin, #wpsuite-product-details, .wpsuite-doc-sidebar) .mantine-Button-root,
+body:has(.wpsuite-top-navigation) .mantine-Button-root {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+:is(#smartcloud-wpsuite-admin, #wpsuite-product-details, .wpsuite-doc-sidebar) .mantine-Button-inner,
+body:has(.wpsuite-top-navigation) .mantine-Button-inner {
+  height: auto;
+  align-items: center;
+}
+:is(#smartcloud-wpsuite-admin, #wpsuite-product-details, .wpsuite-doc-sidebar) .mantine-Button-label,
+body:has(.wpsuite-top-navigation) .mantine-Button-label {
+  height: auto;
+  line-height: 1.4;
+  align-items: center;
+}
+:is(#smartcloud-wpsuite-admin, #wpsuite-product-details) .mantine-InputWrapper-label,
+body:has(.wpsuite-top-navigation) .mantine-InputWrapper-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+:is(#smartcloud-wpsuite-admin, #wpsuite-product-details) .mantine-InputWrapper-required,
+body:has(.wpsuite-top-navigation) .mantine-InputWrapper-required {
+  display: inline;
+  flex-shrink: 0;
 }

@@ -20,6 +20,7 @@ if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'model.php')) {
 if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'custom-translations.php')) {
     require_once SMARTCLOUD_WPSUITE_PATH . 'custom-translations.php';
 }
+require_once SMARTCLOUD_WPSUITE_PATH . 'navigation.php';
 if (
     !class_exists('\\SmartCloud\\WPSuite\\Hub\\Abilities\\Product_Provider_Base', false)
     && file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'abilities.php')
@@ -47,6 +48,7 @@ class HubAdmin
     private SiteSettings $siteSettings;
     private CustomTranslationsCatalog $customTranslations;
     private string $legacyThemeCss = '';
+    private ?AdminNavigation $navigation = null;
 
     public function __construct()
     {
@@ -163,6 +165,8 @@ class HubAdmin
         add_action('customize_register', array($this, 'registerThemeCssCustomizer'));
         add_action('admin_init', array($this, 'migrateLegacyStorage'));
         add_action('admin_menu', array($this, 'mergeLegacyAdminMenu'), PHP_INT_MAX);
+        $this->navigation = new AdminNavigation($this);
+        add_action('admin_menu', array($this->navigation, 'registerMenus'), PHP_INT_MAX);
         add_filter('smartcloud_wpsuite_theme_css_url', array($this, 'filterThemeCssUrl'));
         add_filter('smartcloud_wpsuite_theme_css_urls', array($this, 'filterThemeCssUrls'));
         add_action('wp_head', array($this, 'addMainScript', ), 1);
@@ -469,7 +473,8 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         do_action(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/ready', SMARTCLOUD_WPSUITE_CANONICAL_SLUG);
 
         add_action('admin_enqueue_scripts', function ($hook) use ($connect_suffix, $settings_suffix) {
-            if ($hook !== $connect_suffix && $hook !== $settings_suffix) {
+            // Native product pages also mount the shared configuration-reset control.
+            if ($hook !== $connect_suffix && $hook !== $settings_suffix && !($this->navigation?->hasHook($hook) ?? false)) {
                 return;
             }
 
@@ -496,11 +501,13 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                     'smartcloud-wpsuite-mantine-vendor',
                 )
             );
-            wp_enqueue_script('smartcloud-wpsuite-admin-script', SMARTCLOUD_WPSUITE_URL . 'admin.js', array_values(array_unique($script_dependencies)), SMARTCLOUD_WPSUITE_VERSION, array('in_footer' => true, 'strategy' => 'defer'));
+            $adminAsset = is_readable(SMARTCLOUD_WPSUITE_PATH . 'admin.asset.php') ? require SMARTCLOUD_WPSUITE_PATH . 'admin.asset.php' : array();
+            $adminVersion = (string) ($adminAsset['version'] ?? SMARTCLOUD_WPSUITE_VERSION);
+            wp_enqueue_script('smartcloud-wpsuite-admin-script', SMARTCLOUD_WPSUITE_URL . 'admin.js', array_values(array_unique($script_dependencies)), $adminVersion, array('in_footer' => true, 'strategy' => 'defer'));
 
             if ($hook === $connect_suffix) {
                 $page = 'connect';
-            } elseif ($hook === $settings_suffix) {
+            } elseif ($hook === $settings_suffix || (($_GET['page'] ?? '') === SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '-advanced' && current_user_can('manage_options'))) {
                 $page = 'settings';
             } else {
                 $page = '';
@@ -508,7 +515,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             $js = '__wpsuiteGlobal.WpSuite.view = ' . wp_json_encode($page) . ';';
             wp_add_inline_script('smartcloud-wpsuite-admin-script', $js, 'before');
 
-            wp_enqueue_style('smartcloud-wpsuite-admin-style', SMARTCLOUD_WPSUITE_URL . 'admin.css', array(), SMARTCLOUD_WPSUITE_VERSION);
+            wp_enqueue_style('smartcloud-wpsuite-admin-style', SMARTCLOUD_WPSUITE_URL . 'admin.css', array(), $adminVersion);
             wp_enqueue_style('smartcloud-wpsuite-mantine-vendor-style', SMARTCLOUD_WPSUITE_URL . 'assets/css/mantine-vendor.css', array(), VERSION_MANTINE);
         });
     }
@@ -560,6 +567,15 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
 
     public function renderAdminPage()
     {
+        $page = isset($_GET['page']) && is_string($_GET['page'])
+            ? sanitize_key(wp_unslash($_GET['page']))
+            : SMARTCLOUD_WPSUITE_CANONICAL_SLUG;
+        $navigation = $this->navigation?->bootstrap($page);
+        if ($navigation !== null) {
+            echo '<div id="smartcloud-wpsuite-admin" data-navigation="' . esc_attr(wp_json_encode($navigation)) . '"></div>';
+            return;
+        }
+        // Preserve the legacy settings mount; direct page permissions stay with WordPress.
         echo '<div id="smartcloud-wpsuite-admin"></div>';
     }
 

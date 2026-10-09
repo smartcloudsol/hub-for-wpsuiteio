@@ -20,3 +20,88 @@ input[readonly].mantine-Select-input {
 .highlighted-doc-item {
   background-color: rgba(255, 255, 0, 0.3);
 }
+
+.wpc-embedded {
+  padding: 0;
+  min-width: 0;
+}
+
+.advanced-card {
+  background: var(--mantine-color-gray-0);
+  border-top: 3px solid var(--mantine-color-gray-4);
+  overflow-wrap: anywhere;
+}
+
+.pro-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 0;
+  background: transparent;
+  padding: 0.25rem 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pro-switch:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.pro-switch-track {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 1.5rem;
+  padding: 3px;
+  border: 1px solid var(--mantine-color-gray-6);
+  border-radius: 1rem;
+  background: var(--mantine-color-gray-6);
+}
+
+.pro-switch-thumb {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: white;
+}
+
+.pro-switch[aria-checked="true"] .pro-switch-track {
+  background: var(--mantine-primary-color-filled);
+  border-color: var(--mantine-primary-color-filled);
+}
+
+.pro-switch[aria-checked="true"] .pro-switch-thumb {
+  transform: translateX(1rem);
+}
+
+/* Keep each check with its tool in reading order. Desktop rows share card and
+   check tracks, so expanding a check never stretches the main cards above it. */
+.installed-tool {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.installed-tool[data-backend="true"] > :first-child {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.installed-tool[data-backend="true"] :global(.mantine-Accordion-item) {
+  border-top: 0;
+  border-radius: 0 0 var(--mantine-radius-md) var(--mantine-radius-md);
+}
+
+@media (min-width: 48em) {
+  .installed-tool {
+    display: grid;
+    grid-row: span 2;
+    grid-template-rows: subgrid;
+  }
+}

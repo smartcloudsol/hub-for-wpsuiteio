@@ -9,6 +9,7 @@ import {
   type SetStateAction,
 } from "react";
 import { Settings } from "./settings";
+import type { NavigationLink } from "../navigation";
 
 export interface LicenseHandlerProps extends PropsWithChildren {
   amplifyConfigured: boolean | undefined;
@@ -20,6 +21,8 @@ export interface LicenseHandlerProps extends PropsWithChildren {
   siteId?: string;
   siteKey?: string;
   nonce?: string;
+  compact?: boolean;
+  platformLinks?: NavigationLink[];
   setAccountId: Dispatch<SetStateAction<string | undefined>>;
   setSiteId: Dispatch<SetStateAction<string | undefined>>;
   setSiteKey: Dispatch<SetStateAction<string | undefined>>;
@@ -39,14 +42,14 @@ export const LicenseHandler: FunctionComponent<LicenseHandlerProps> = (
     <Skeleton
       visible={props.amplifyConfigured === undefined}
       width="100%"
-      mt="md"
+      mt={props.compact ? 0 : "md"}
     >
       {props.amplifyConfigured === undefined ? (
         <Group
           justify="space-between"
           align="stretch"
           w="100%"
-          h="150px"
+          h={props.compact ? 80 : 150}
         ></Group>
       ) : (
         <Authenticator.Provider>

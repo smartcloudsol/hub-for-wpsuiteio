@@ -1,13 +1,16 @@
 {
   "name": "@smart-cloud/wpsuite-admin",
   "private": true,
-  "version": "2.4.8",
+  "version": "2.5.0",
   "type": "module",
   "license": "ISC",
   "scripts": {
     "dev": "vite --host",
     "build": "tsc && vite build",
-    "test": "php tests/namespace-migration.test.php && php tests/custom-translations.test.php && node --test src/translation-catalog/catalog.test.ts",
+    "test": "php tests/namespace-migration.test.php && php tests/custom-translations.test.php && php tests/navigation.test.php && php tests/capability-surfaces.test.php && node --test src/translation-catalog/catalog.test.ts src/navigation.test.ts",
+    "test:wordpress-navigation": "bash tests/run-navigation-wordpress.sh",
+    "test:wordpress-surfaces": "bash tests/surface-wordpress.sh",
+    "test:browser-navigation": "node tests/navigation-browser.test.mjs",
     "lint": "eslint 'src/**/*.tsx' --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview --host",
     "build-wp": "wp-scripts build --config=webpack.config.cjs --webpack-copy-php --stats-error-details --output-path",

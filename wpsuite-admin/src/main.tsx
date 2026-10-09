@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState, type ElementType } from "react";
 import { __experimentalHeading as Heading } from "@wordpress/components";
 import { __ } from "@wordpress/i18n";
 
-import { Anchor, DEFAULT_THEME, Stack, Text } from "@mantine/core";
+import { Anchor, Button, DEFAULT_THEME, Group, Stack, Text } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 
 import { getWpSuite, TEXT_DOMAIN } from "@smart-cloud/wpsuite-core";
@@ -17,9 +17,12 @@ import { LicenseHandler } from "./license-handler";
 import "jquery";
 
 import classes from "./main.module.css";
+import type { NavigationLink } from "./navigation";
 
 interface MainProps {
   nonce?: string;
+  embedded?: boolean;
+  platformLinks?: NavigationLink[];
 }
 
 const production = process.env?.NODE_ENV === "production";
@@ -38,7 +41,8 @@ const wpsuite = getWpSuite();
 const HeadingComponent = Heading as unknown as ElementType;
 
 const Main = (props: MainProps) => {
-  const { nonce } = props;
+  const { nonce, embedded = false, platformLinks = [] } = props;
+  const compact = embedded && Boolean(wpsuite?.siteSettings.accountId && wpsuite.siteSettings.siteId);
 
   const [amplifyConfigured, setAmplifyConfigured] = useState<
     boolean | undefined
@@ -193,10 +197,10 @@ const Main = (props: MainProps) => {
   }, [checkAccount]);
 
   return (
-    <div className={classes["wpc-container"]}>
-      <Stack mb="md" gap={4}>
+    <div className={embedded ? classes["wpc-embedded"] : classes["wpc-container"]}>
+      {!compact && <Stack mb="md" gap={4}>
         <HeadingComponent
-          level={1}
+          level={embedded ? 2 : 1}
           style={{
             display: "flex",
             alignItems: "center",
@@ -204,8 +208,11 @@ const Main = (props: MainProps) => {
             color: "#218BE6",
           }}
         >
-          {__(isMobile ? "WPSuite" : "WPSuite Site Connection", TEXT_DOMAIN)}
+          {embedded
+            ? __("WP Suite site connection", TEXT_DOMAIN)
+            : __(isMobile ? "WPSuite" : "WPSuite Site Connection", TEXT_DOMAIN)}
         </HeadingComponent>
+        {embedded ? <Text>{__("Connect this site to manage Pro configuration. Other tools work without a connection.", TEXT_DOMAIN)}</Text> : <>
         <Text>
           <strong>WPSuite</strong> is a commercial platform developed by{" "}
           <strong>Smart Cloud Solutions, Inc</strong>. Connecting your site lets
@@ -230,7 +237,8 @@ const Main = (props: MainProps) => {
           </Anchor>
           .
         </Text>
-      </Stack>{" "}
+        </>}
+      </Stack>}
       <LicenseHandler
         apiUrl={apiUrl}
         amplifyConfigured={amplifyConfigured}
@@ -244,11 +252,14 @@ const Main = (props: MainProps) => {
         setAccountId={setAccountId}
         setSiteId={setSiteId}
         setSiteKey={setSiteKey}
+        compact={compact}
+        platformLinks={embedded ? platformLinks : []}
       />
-      <Text c="dimmed" size="xs" mt="md" fs="italic">
+      {embedded && !compact && platformLinks.length > 0 && <Group mt="md">{platformLinks.map(link => <Button key={link.url} component="a" href={link.url} variant="default">{link.label}</Button>)}</Group>}
+      {!compact && <Text c="dimmed" size="xs" mt="md" fs="italic">
         WPSuite.io is a commercial platform by Smart Cloud Solutions, Inc. and
         is not affiliated with or endorsed by WordPress.org.
-      </Text>
+      </Text>}
     </div>
   );
 };

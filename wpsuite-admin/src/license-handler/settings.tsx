@@ -159,10 +159,10 @@ export const Settings: FunctionComponent<SettingsProps> = (
     siteId,
     siteKey,
     nonce,
-    setAccountId,
-    setSiteId,
-    setSiteKey,
+    compact = false,
   } = props;
+  const [manageConnection, setManageConnection] = useState(false);
+  const compactConnected = compact && Boolean(accountId && siteId);
   const [
     creatingUpdateSubscriptionSession,
     setCreatingUpdateSubscriptionSession,
@@ -407,7 +407,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
     [cancelOrNewSubscription],
   );
 
-  const { isError: isAccountError } = useQuery({
+  const { data: account, isError: isAccountError } = useQuery({
     queryKey: ["account", accountId],
     queryFn: () =>
       fetchAccount(accountId!)
@@ -428,7 +428,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
     enabled: !!accountId && authStatus === "authenticated",
   });
 
-  const { isError: isSiteError, isPending: isSitePending } = useQuery({
+  const { isError: isSiteError, isPending: isSitePending, isLoading: isSiteLoading } = useQuery({
     queryKey: ["site", accountId, siteId],
     queryFn: () =>
       fetchSite(accountId!, siteId!, siteKey)
@@ -455,7 +455,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
       // Preserve current shared site settings from the WPSuite global.
       const currentSettings = wpsuite?.siteSettings || {};
 
-      return fetch(wpsuite!.restUrl + "/update-site-settings", {
+      const response = await fetch(wpsuite!.restUrl + "/update-site-settings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -485,58 +485,29 @@ export const Settings: FunctionComponent<SettingsProps> = (
             true,
         }),
         credentials: "same-origin",
-      }).finally(() => {
-        if (
-          siteSettings &&
-          accountId !== siteSettings.accountId &&
-          siteId !== siteSettings.siteId
-        ) {
-          setSite(null);
-          if (!siteSettings.accountId) {
-            setSubscriptionType(null);
-          }
-          setAccountId(siteSettings.accountId);
-          setSiteId(siteSettings.siteId);
-          setSiteKey(siteSettings.siteKey);
-        }
       });
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(
+          typeof error?.message === "string"
+            ? error.message
+            : __("Site settings could not be saved. Please try again.", TEXT_DOMAIN),
+        );
+      }
+
+      // The shared runtime captures the connection when the page loads. Reload
+      // after persistence so every plugin reads the new site and cleared cache.
+      window.location.reload();
+      return response;
     },
-    [
-      accountId,
-      nonce,
-      setAccountId,
-      setSiteId,
-      setSiteKey,
-      siteId,
-      siteKey,
-      subscriptionType,
-    ],
+    [accountId, nonce, siteId, siteKey, subscriptionType],
   );
 
   const saveSiteSettingsMutation = useMutation({
     mutationFn: (siteSettings: SiteSettings) => {
       return clearCache(siteSettings);
     },
-    onSuccess: async (response) => {
-      if (response.ok) {
-        notifications.show({
-          title: __("Settings saved", TEXT_DOMAIN),
-          message: __("Site settings saved successfully", TEXT_DOMAIN),
-          color: "green",
-          icon: <IconInfoCircle />,
-          className: classes["notification"],
-        });
-      } else {
-        const err = await response.json();
-        console.error("Failed to connect site", err);
-        notifications.show({
-          title: __("Error occured", TEXT_DOMAIN),
-          message: (err as Error).message,
-          color: "red",
-          icon: <IconAlertCircle />,
-          className: classes["notification"],
-        });
-      }
+    onSuccess: () => {
       stack.close("connect-your-site");
     },
     onError: (error) => {
@@ -614,7 +585,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
                       className: classes["console-button-outline"],
                     },
                     withCloseButton: false,
-                    onConfirm: () => clearCache({}),
+                    onConfirm: () => saveSiteSettingsMutation.mutate({}),
                     zIndex: 100000,
                     xOffset: "1dvh",
                     yOffset: "1dvh",
@@ -763,6 +734,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
     accountId,
     authStatus,
     clearCache,
+    saveSiteSettingsMutation,
     creatingUpdateSubscriptionSession,
     isAccountError,
     isSiteError,
@@ -810,14 +782,16 @@ export const Settings: FunctionComponent<SettingsProps> = (
     }
   }, [accountId, amplifyConfigured, authStatus, queryClient, siteId]);
 
+  const verifiedPlan = isSiteError || !loadSiteEnabled
+    ? __("Plan unavailable", TEXT_DOMAIN)
+    : !site || isSitePending
+      ? __("Checking plan", TEXT_DOMAIN)
+      : site.subscriptionType === "PROFESSIONAL" ? "PRO"
+        : site.subscriptionType === "AGENCY" ? "AGENCY"
+          : site.subscriptionType == null ? "FREE" : __("Plan unavailable", TEXT_DOMAIN);
+
   return (
-    <Group
-      justify="space-between"
-      align="stretch"
-      w="100%"
-      wrap="nowrap"
-      style={{ flexDirection: isMobile ? "column-reverse" : "row-reverse" }}
-    >
+    <Stack gap="md" w="100%">
       <Modal.Stack>
         <Modal
           {...stack.register("connect-your-site")}
@@ -889,7 +863,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
                     Start free with WP Suite core features. Upgrade to Pro to
                     unlock advanced customization, integrations, and premium
                     support across all WP Suite plugins.{" "}
-                    <a className="dark-link" href="/pricing/">
+                    <a className="dark-link" href="https://wpsuite.io/pricing/">
                       Pricing
                     </a>{" "}
                     page.
@@ -909,6 +883,28 @@ export const Settings: FunctionComponent<SettingsProps> = (
                       customer-email={email}
                     />
                   )}
+                  <Card withBorder p="lg">
+                    <Stack gap="sm">
+                      <Title order={3}>
+                        {__("WP Suite Agency", TEXT_DOMAIN)}
+                      </Title>
+                      <Text size="sm">
+                        {__(
+                          "Agency subscription through AWS Marketplace.",
+                          TEXT_DOMAIN,
+                        )}
+                      </Text>
+                      <Button
+                        component="a"
+                        href="https://aws.amazon.com/marketplace/pp/prodview-db6r5h44kydsa"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ alignSelf: "flex-start" }}
+                      >
+                        {__("Subscribe on AWS Marketplace", TEXT_DOMAIN)}
+                      </Button>
+                    </Stack>
+                  </Card>
                   <Group align="center" className={classes.info}>
                     <Flex
                       align="start"
@@ -931,6 +927,26 @@ export const Settings: FunctionComponent<SettingsProps> = (
             )}
         </Modal>
       </Modal.Stack>
+      {compactConnected && <Card component="section" aria-label={__("Site connection summary", TEXT_DOMAIN)} withBorder p="md" radius="md">
+        <Group justify="space-between" align="center" gap="md">
+          <Stack gap={4} style={{ minWidth: 0, flex: "1 1 200px" }}>
+            <Group gap="sm"><Title order={2} size="h4">{__("Site connection", TEXT_DOMAIN)}</Title><Badge color={isSiteError ? "red" : "green"}>{isSiteError ? __("Unreachable", TEXT_DOMAIN) : __("Connected", TEXT_DOMAIN)}</Badge></Group>
+            <Text size="sm" style={{ overflowWrap: "anywhere" }}>{site?.name ?? (isSiteLoading ? __("Loading site…", TEXT_DOMAIN) : __("Site unavailable", TEXT_DOMAIN))}{(site?.account?.name ?? account?.name) && <> · {site?.account?.name ?? account?.name}</>}</Text>
+          </Stack>
+          <Group gap="sm" wrap="wrap">
+            <Badge color={verifiedPlan === "PRO" ? "red" : verifiedPlan === "AGENCY" ? "teal" : "gray"}>{verifiedPlan}</Badge>
+            <Button variant="light" aria-expanded={manageConnection} aria-controls="wpsuite-connection-details" onClick={() => setManageConnection(current => !current)}>{__("Manage connection", TEXT_DOMAIN)}</Button>
+          </Group>
+        </Group>
+      </Card>}
+      {(!compactConnected || manageConnection) && <Group
+        id="wpsuite-connection-details"
+        justify="space-between"
+        align="stretch"
+        w="100%"
+        wrap="nowrap"
+        style={{ flexDirection: isMobile ? "column-reverse" : "row-reverse" }}
+      >
       {authStatus === "configuring" && <FullSkeleton />}
       {authStatus === "unauthenticated" && (
         <Card
@@ -1057,69 +1073,9 @@ export const Settings: FunctionComponent<SettingsProps> = (
           <Text fw={500}>Site Details</Text>
         </Group>
         <Grid align="center" style={{ justifyContent: "space-between" }}>
-          <Grid.Col span={{ base: 12, sm: 2 }}>
-            Status{" "}
-            {isMobile && (
-              <Skeleton
-                display="inline-grid"
-                w="fit-content"
-                visible={site === undefined && isSitePending}
-              >
-                {accountId && siteId && !isSiteError ? (
-                  <Badge color="green" miw={100}>
-                    Connected
-                  </Badge>
-                ) : (
-                  <Badge color="grey" miw={120}>
-                    {accountId && siteId
-                      ? "Connected (unreachable)"
-                      : "Not connected"}
-                  </Badge>
-                )}
-              </Skeleton>
-            )}
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, sm: 10 }}>
-            <Flex
-              direction={{ base: "column", sm: "row" }}
-              gap="sm"
-              align="center"
-            >
-              {!isMobile && (
-                <Skeleton
-                  display="inline-grid"
-                  w="fit-content"
-                  visible={site === undefined && isSitePending}
-                >
-                  {accountId && siteId && !isSiteError ? (
-                    <Badge color="green" miw={100}>
-                      Connected
-                    </Badge>
-                  ) : (
-                    <Badge color="grey" miw={120}>
-                      {accountId && siteId
-                        ? "Connected (unreachable)"
-                        : "Not connected"}
-                    </Badge>
-                  )}
-                </Skeleton>
-              )}
-              {site && (
-                <Skeleton
-                  w="100%"
-                  visible={site === undefined && isSitePending}
-                >
-                  <Flex
-                    bg="gray.0"
-                    align="center"
-                    p="sm"
-                    style={{ borderRadius: 6 }}
-                  >
-                    {site && (
-                      <>
-                        <Stack gap={2} style={{ flexGrow: 1 }}>
-                          <Text size="sm" fw={500} component="div">
-                            Site: {site.name} (id: {site.siteId})
+          {site ? <>
+            <Grid.Col span={{ base: 12, sm: 2 }}>{__("Site", TEXT_DOMAIN)}</Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 10 }}><Group gap="xs"><Text size="sm" fw={500}>{site.name}</Text><Text size="xs" c="dimmed">{site.siteId}</Text>
                             {subscriptionType !== undefined &&
                               subscriptionType !== null && (
                                 <HoverCard
@@ -1295,32 +1251,12 @@ export const Settings: FunctionComponent<SettingsProps> = (
                                   </HoverCard.Dropdown>
                                 </HoverCard>
                               )}
-                          </Text>
-                          {site.account && (
-                            <>
-                              <Text size="xs" c="dimmed" component="div">
-                                Workspace: {site.account.name} (id:{" "}
-                                {site.account.accountId}, owner:{" "}
-                                <a
-                                  className="dark-link"
-                                  href={`mailto:${site.account.ownerEmail}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  {site.account.ownerEmail}
-                                </a>
-                                )
-                              </Text>
-                            </>
-                          )}
-                        </Stack>
-                      </>
-                    )}
-                  </Flex>
-                </Skeleton>
-              )}
-            </Flex>
-          </Grid.Col>
+            </Group></Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 2 }}>{__("Workspace", TEXT_DOMAIN)}</Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 10 }}><Group gap="xs"><Text size="sm">{site.account?.name ?? account?.name ?? site.accountId}</Text><Text size="xs" c="dimmed">{site.accountId}</Text></Group></Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 2 }}>{__("Owner", TEXT_DOMAIN)}</Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 10 }}><Text size="sm">{(site.account?.ownerEmail ?? account?.ownerEmail) ? <a href={`mailto:${site.account?.ownerEmail ?? account?.ownerEmail}`}>{site.account?.ownerEmail ?? account?.ownerEmail}</a> : __("Unavailable", TEXT_DOMAIN)}</Text></Grid.Col>
+          </> : <Grid.Col span={12}><Text size="sm">{!accountId || !siteId ? __("Not connected. Connect this site to view its workspace and subscription.", TEXT_DOMAIN) : isSiteLoading ? __("Loading site…", TEXT_DOMAIN) : isSiteError ? __("The connected site could not be loaded. Try reconnecting.", TEXT_DOMAIN) : __("Site details are not available.", TEXT_DOMAIN)}</Text></Grid.Col>}
           <Grid.Col span={{ base: 12, sm: 2 }}>
             Subscription{" "}
             {isMobile && (
@@ -1331,19 +1267,13 @@ export const Settings: FunctionComponent<SettingsProps> = (
                   visible={subscriptionType === undefined}
                 >
                   {subscriptionType === null && (
-                    <Badge color="grey" miw={45}>
-                      FREE
-                    </Badge>
+                    <Text component="span" fw={600}>{__("Free", TEXT_DOMAIN)}</Text>
                   )}
                   {subscriptionType === "PROFESSIONAL" && (
-                    <Badge color="red" miw={35}>
-                      PRO
-                    </Badge>
+                    <Text component="span" fw={600}>{__("Professional", TEXT_DOMAIN)}</Text>
                   )}
                   {subscriptionType === "AGENCY" && (
-                    <Badge color="teal" miw={60}>
-                      AGENCY
-                    </Badge>
+                    <Text component="span" fw={600}>{__("Agency", TEXT_DOMAIN)}</Text>
                   )}
                 </Skeleton>
                 {renderSettingsPanel()}
@@ -1364,19 +1294,13 @@ export const Settings: FunctionComponent<SettingsProps> = (
                   visible={subscriptionType === undefined}
                 >
                   {subscriptionType === null && (
-                    <Badge color="grey" miw={45}>
-                      FREE
-                    </Badge>
+                    <Text component="span" fw={600}>{__("Free", TEXT_DOMAIN)}</Text>
                   )}
                   {subscriptionType === "PROFESSIONAL" && (
-                    <Badge color="red" miw={35}>
-                      PRO
-                    </Badge>
+                    <Text component="span" fw={600}>{__("Professional", TEXT_DOMAIN)}</Text>
                   )}
                   {subscriptionType === "AGENCY" && (
-                    <Badge color="teal" miw={60}>
-                      AGENCY
-                    </Badge>
+                    <Text component="span" fw={600}>{__("Agency", TEXT_DOMAIN)}</Text>
                   )}
                 </Skeleton>
               )}
@@ -1457,7 +1381,8 @@ export const Settings: FunctionComponent<SettingsProps> = (
           </Grid.Col>
         </Grid>
       </Card>
-    </Group>
+      </Group>}
+    </Stack>
   );
 };
 

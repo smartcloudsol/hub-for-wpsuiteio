@@ -1,6 +1,5 @@
-import { useCallback, useState, type ElementType } from "react";
+import { useCallback, useState } from "react";
 import {
-  DEFAULT_THEME,
   Button,
   Card,
   Group,
@@ -10,25 +9,27 @@ import {
   Textarea,
   Checkbox,
   ActionIcon,
+  Tabs,
+  Title,
 } from "@mantine/core";
-import { useMediaQuery, useDisclosure } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 
 import { IconDeviceFloppy, IconHelp } from "@tabler/icons-react";
 
-import { __experimentalHeading as Heading } from "@wordpress/components";
 import { __ } from "@wordpress/i18n";
 
 import { getWpSuite, TEXT_DOMAIN } from "@smart-cloud/wpsuite-core";
 
 import { DocSidebar } from "./settings-doc-sidebar";
+import { useAdminSectionHistory } from "./admin-section-history";
 import { TranslationCatalogEditor } from "./translation-catalog/translation-catalog-editor";
 
 const wpsuite = getWpSuite();
 const themeCssEditorUrl = (
   wpsuite as (typeof wpsuite & { themeCssEditorUrl?: string })
 )?.themeCssEditorUrl;
-const HeadingComponent = Heading as unknown as ElementType;
+
 
 type RecaptchaSettings = {
   reCaptchaPublicKey: string;
@@ -59,7 +60,15 @@ function InfoLabel({ text, scrollToId, onOpen }: InfoLabelProps) {
   );
 }
 
+type PlatformSection = "recaptcha" | "styling" | "translations";
+function sectionFromSearch(search: string): PlatformSection {
+  const section = new URLSearchParams(search).get("section");
+  return section === "styling" || section === "translations" ? section : "recaptcha";
+}
+
 export default function SettingsScreen() {
+  const [section, setSection] = useState<PlatformSection>(() => sectionFromSearch(window.location.search));
+  const selectSection = useAdminSectionHistory(section, sectionFromSearch, next => { setSection(next); return next; });
   const [settings, setSettings] = useState<RecaptchaSettings>({
     reCaptchaPublicKey: wpsuite?.siteSettings?.reCaptchaPublicKey || "",
     useRecaptchaNet: wpsuite?.siteSettings?.useRecaptchaNet || false,
@@ -74,10 +83,6 @@ export default function SettingsScreen() {
   );
   const [opened, { open, close }] = useDisclosure(false);
   const [scrollToId, setScrollToId] = useState<string>("");
-
-  const isMobile = useMediaQuery(
-    `(max-width: ${DEFAULT_THEME.breakpoints.sm})`,
-  );
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -134,26 +139,15 @@ export default function SettingsScreen() {
 
   return (
     <Stack p="md" gap="md" maw={1280}>
-      <HeadingComponent
-        level={1}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          color: "#218BE6",
-        }}
-      >
-        {__(
-          isMobile ? "WPSuite Settings" : "WPSuite General Settings",
-          TEXT_DOMAIN,
-        )}
-      </HeadingComponent>
-      <Text>
-        Configure settings that apply to all WPSuite.io plugins on your site,
-        such as shared shadow-root styling and Google reCAPTCHA integration for
-        forms and authentication.
-      </Text>
-
+      <Title order={1}>{__("Platform Settings", TEXT_DOMAIN)}</Title>
+      <Text c="dimmed">{__("Shared settings for WP Suite tools on this WordPress site.", TEXT_DOMAIN)}</Text>
+      <Tabs value={section} onChange={value => selectSection(sectionFromSearch(`section=${value}`))} keepMounted>
+        <Tabs.List mb="lg">
+          <Tabs.Tab value="recaptcha">{__("reCAPTCHA Settings", TEXT_DOMAIN)}</Tabs.Tab>
+          <Tabs.Tab value="styling">{__("Styling", TEXT_DOMAIN)}</Tabs.Tab>
+          <Tabs.Tab value="translations">{__("Translations", TEXT_DOMAIN)}</Tabs.Tab>
+        </Tabs.List>
+        <Tabs.Panel value="styling">
       <Card withBorder radius="lg" p="lg">
         <Text fw={600} mb="md">
           WPSuite Theme CSS
@@ -193,7 +187,11 @@ export default function SettingsScreen() {
         </Stack>
       </Card>
 
-      <TranslationCatalogEditor onOpenHelp={() => openInfo("custom-translations")} />
+        </Tabs.Panel>
+        <Tabs.Panel value="translations">
+          <TranslationCatalogEditor onOpenHelp={() => openInfo("custom-translations")} />
+        </Tabs.Panel>
+        <Tabs.Panel value="recaptcha">
 
       <Card withBorder radius="lg" p="lg">
         <Text fw={600} mb="md">
@@ -278,7 +276,9 @@ export default function SettingsScreen() {
         </Stack>
       </Card>
 
-      <Group justify="flex-end">
+        </Tabs.Panel>
+      </Tabs>
+      {section !== "translations" && <Group justify="flex-end">
         <Button
           leftSection={<IconDeviceFloppy size={16} />}
           onClick={handleSave}
@@ -286,7 +286,7 @@ export default function SettingsScreen() {
         >
           {__("Save Settings", TEXT_DOMAIN)}
         </Button>
-      </Group>
+      </Group>}
 
       <DocSidebar opened={opened} close={close} scrollToId={scrollToId} />
     </Stack>
