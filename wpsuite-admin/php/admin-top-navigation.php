@@ -49,6 +49,7 @@ final class AdminTopNavigation
             if (empty($group['url'])) { continue; }
             echo '<section class="wpsuite-top-navigation__group"><h2><a href="' . esc_url($group['url']) . '">' . esc_html($group['label']) . '</a></h2>';
             if (!empty($group['product']) && $group['product'] !== $group['label']) {
+                /* translators: %s: Name of the plugin providing this group of tools. */
                 echo '<p class="wpsuite-top-navigation__origin">' . esc_html(sprintf(__('Powered by %s', 'smartcloud-wpsuite'), $group['product'] === 'AI-Kit' ? 'SmartCloud AI-Kit' : $group['product'])) . '</p>';
             }
             echo '<ul>';

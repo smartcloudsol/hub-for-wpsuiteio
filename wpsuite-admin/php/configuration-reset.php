@@ -26,14 +26,14 @@ final class ConfigurationReset
         $found = null;
         foreach (apply_filters('smartcloud_wpsuite_admin_capabilities', array()) as $entry) {
             if (!is_array($entry) || ($entry['schema_version'] ?? null) !== 1 || ($entry['id'] ?? '') !== $id) { continue; }
-            if ($found !== null && $found !== $entry) { return self::error('reset_conflict', 'This tool has conflicting registrations.', 409); }
+            if ($found !== null && $found !== $entry) { return self::error('reset_conflict', __('This tool has conflicting registrations.', 'smartcloud-wpsuite'), 409); }
             $found = $entry;
         }
         if ($found === null || !is_array($found['configuration_reset'] ?? null)) {
-            return self::error('reset_unavailable', 'Configuration reset is not available for this plugin.', 404);
+            return self::error('reset_unavailable', __('Configuration reset is not available for this plugin.', 'smartcloud-wpsuite'), 404);
         }
         if (!current_user_can('manage_options') || !current_user_can($found['required_capability'] ?? 'manage_options')) {
-            return self::error('reset_forbidden', 'You do not have permission to reset this plugin.', 403);
+            return self::error('reset_forbidden', __('You do not have permission to reset this plugin.', 'smartcloud-wpsuite'), 403);
         }
         $reset = $found['configuration_reset'];
         if (!is_array($reset['options'] ?? null) || count($reset['options']) > 64 || !is_string($reset['title'] ?? null)
@@ -70,22 +70,22 @@ final class ConfigurationReset
         if (is_wp_error($reset)) { return $reset; }
         // Cookie authentication also checks this nonce; require it explicitly for this destructive operation.
         if (!wp_verify_nonce($request->get_header('X-WP-Nonce'), 'wp_rest')) {
-            return self::error('reset_nonce', 'Reload the page before resetting settings.', 403);
+            return self::error('reset_nonce', __('Reload the page before resetting settings.', 'smartcloud-wpsuite'), 403);
         }
         $body = $request->get_json_params();
         if (!is_array($body) || count($body) !== 2 || array_diff(array_keys($body), array('revision', 'confirm'))
             || ($body['confirm'] ?? null) !== true || !is_string($body['revision'] ?? null)
             || !preg_match('/^[a-f0-9]{64}$/D', $body['revision'])) {
-            return self::error('reset_confirmation', 'Review and explicitly confirm the complete configuration reset.', 400);
+            return self::error('reset_confirmation', __('Review and explicitly confirm the complete configuration reset.', 'smartcloud-wpsuite'), 400);
         }
         // A connection-owned lock is released even if PHP terminates unexpectedly.
         $lock = 'wpsuite-reset-' . substr(hash('sha256', $wpdb->options . ':' . $request['id']), 0, 40);
         if ((string) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, 0)', $lock)) !== '1') {
-            return self::error('reset_busy', 'Another configuration reset is in progress. Try again shortly.', 409);
+            return self::error('reset_busy', __('Another configuration reset is in progress. Try again shortly.', 'smartcloud-wpsuite'), 409);
         }
         try {
             if (!hash_equals($this->revision($reset), $body['revision'])) {
-                return self::error('reset_stale', 'Settings changed after you opened the confirmation. Close it and review the reset again.', 409);
+                return self::error('reset_stale', __('Settings changed after you opened the confirmation. Close it and review the reset again.', 'smartcloud-wpsuite'), 409);
             }
             $result = isset($reset['reset']) ? ($reset['reset'])($body['revision']) : $this->resetOptions($reset, $body['revision']);
             if (is_wp_error($result)) { return $result; }
@@ -115,7 +115,7 @@ final class ConfigurationReset
                 if ($wpdb->last_error) { return self::failed(); }
             }
             if (!hash_equals(self::revision($reset), $revision)) {
-                return self::error('reset_stale', 'Settings changed after you opened the confirmation. Close it and review the reset again.', 409);
+                return self::error('reset_stale', __('Settings changed after you opened the confirmation. Close it and review the reset again.', 'smartcloud-wpsuite'), 409);
             }
             $result = self::deleteOptions($keys, false);
             if (is_wp_error($result)) { return $result; }
@@ -172,11 +172,11 @@ final class ConfigurationReset
 
     private static function failed(): \WP_Error
     {
-        return self::error('reset_failed', 'The plugin could not complete the configuration reset. Reload and check its settings before trying again.', 500);
+        return self::error('reset_failed', __('The plugin could not complete the configuration reset. Reload and check its settings before trying again.', 'smartcloud-wpsuite'), 500);
     }
 
     private static function error(string $code, string $message, int $status): \WP_Error
     {
-        return new \WP_Error($code, __($message, 'smartcloud-wpsuite'), array('status' => $status));
+        return new \WP_Error($code, $message, array('status' => $status));
     }
 }
