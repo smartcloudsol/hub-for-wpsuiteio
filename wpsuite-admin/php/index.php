@@ -21,6 +21,8 @@ if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'custom-translations.php')) 
     require_once SMARTCLOUD_WPSUITE_PATH . 'custom-translations.php';
 }
 require_once SMARTCLOUD_WPSUITE_PATH . 'navigation.php';
+require_once SMARTCLOUD_WPSUITE_PATH . 'backend-profiles.php';
+BackendProfiles::boot();
 if (
     !class_exists('\\SmartCloud\\WPSuite\\Hub\\Abilities\\Product_Provider_Base', false)
     && file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'abilities.php')
@@ -38,6 +40,7 @@ const WPSUITE_VIRTUAL_ASSET_QUERY_VAR = 'smartcloud_wpsuiteio_asset';
 const WPSUITE_VIRTUAL_ASSET_REWRITE_VERSION = '2';
 const WPSUITE_LICENSE_OPTION = 'smartcloud-wpsuiteio/license-jws';
 const WPSUITE_CONFIG_OPTION = 'smartcloud-wpsuiteio/config-encrypted';
+const WPSUITE_LICENSE_BINDING_OPTION = 'smartcloud-wpsuiteio/license-binding';
 const WPSUITE_LICENSE_REFRESH_OPTION = 'smartcloud-wpsuiteio/license-last-refresh';
 const WPSUITE_LICENSE_REFRESH_LOCK = 'smartcloud-wpsuiteio/license-refresh-lock';
 const WPSUITE_NAMESPACE_MIGRATION_OPTION = 'smartcloud-wpsuite/namespace-migration-version';
@@ -52,6 +55,8 @@ class HubAdmin
 
     public function __construct()
     {
+        SiteKeyStorage::registerFilters();
+        add_action('admin_notices', array(SiteKeyStorage::class, 'notice'));
         $this->customTranslations = new CustomTranslationsCatalog(
             fn(string $revision): string => $this->getCustomTranslationsAssetUrl($revision)
         );
@@ -67,21 +72,22 @@ class HubAdmin
             useRecaptchaEnterprise: false,
             renderRecaptchaProvider: true,
         );
-        $stored = get_option(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/site-settings', $defaultSiteSettings);
+        $stored = get_option(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/site-settings', null);
+        if ($stored === null) $stored = get_option(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/site-settings', $defaultSiteSettings);
         $values = is_object($stored) ? get_object_vars($stored) : (is_array($stored) ? $stored : array());
         $this->legacyThemeCss = $this->normalizeThemeCssValue($values['wpsuiteThemeCss'] ?? '');
-        $this->siteSettings = new SiteSettings(
-            accountId: (string) ($values['accountId'] ?? ''),
-            siteId: (string) ($values['siteId'] ?? ''),
-            lastUpdate: (int) ($values['lastUpdate'] ?? 0),
-            subscriber: (bool) ($values['subscriber'] ?? false),
-            siteKey: (string) ($values['siteKey'] ?? ''),
-            reCaptchaPublicKey: (string) ($values['reCaptchaPublicKey'] ?? ''),
-            useRecaptchaNet: (bool) ($values['useRecaptchaNet'] ?? false),
-            useRecaptchaEnterprise: (bool) ($values['useRecaptchaEnterprise'] ?? false),
-            renderRecaptchaProvider: (bool) ($values['renderRecaptchaProvider'] ?? true),
-            themeCssUrls: is_array($values['themeCssUrls'] ?? null) ? $values['themeCssUrls'] : array(),
-        );
+        $this->siteSettings = SiteSettings::fromArray($values);
+        // Persist the alias addition without replacing unknown settings or changing IDs.
+        if (!array_key_exists('workspaceId', $values) && $this->siteSettings->workspaceId !== '') {
+            $migrated = is_array($stored) ? get_object_vars($this->siteSettings) : $this->siteSettings;
+            try { $this->writeSiteSettingsOptions($migrated); } catch (\RuntimeException $error) { /* Preserve existing options if encryption is unavailable. */ }
+        }
+        SiteKeyStorage::migratePlaintextOptions();
+        // Re-read after migration: a failed seal must never leave a plaintext runtime fallback.
+        $current = get_option(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/site-settings', null);
+        if ($current === null) $current = get_option(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/site-settings', $defaultSiteSettings);
+        $this->siteSettings = SiteSettings::fromArray(is_object($current) ? get_object_vars($current) : (is_array($current) ? $current : array()));
+        BackendProfiles::setValidator(fn(SiteSettings $settings) => $this->readConnectionConfig($settings, $settings->workspaceId, $settings->siteId, $settings->siteKey));
         add_filter('smartcloud_wpsuite_replace_theme_css_fragment', array($this, 'replaceThemeCssFragment'), 10, 3);
         add_filter('smartcloud_wpsuite_custom_translations_url', array($this, 'filterCustomTranslationsUrl'));
         $this->registerRestRoutes();
@@ -181,6 +187,14 @@ class HubAdmin
 
     public function registerVirtualAssetRewrite(): void
     {
+        if (BackendProfiles::eligible()) {
+            add_rewrite_rule('^' . WPSUITE_VIRTUAL_ASSET_PATH . '/(profile/(?:production|development)/[1-9][0-9]*/(?:theme\\.css|lic\\.jws|config\\.enc|custom-translations\\.json))/?$',
+                'index.php?' . WPSUITE_VIRTUAL_ASSET_QUERY_VAR . '=$matches[1]', 'top');
+            if (get_option('smartcloud-wpsuite/backend-profile-asset-rewrite', '') !== '1') {
+                flush_rewrite_rules(false);
+                update_option('smartcloud-wpsuite/backend-profile-asset-rewrite', '1', false);
+            }
+        }
         add_rewrite_rule(
             '^' . WPSUITE_VIRTUAL_ASSET_PATH . '/(theme\.css|lic\.jws|config\.enc|custom-translations\.json)/?$',
             'index.php?' . WPSUITE_VIRTUAL_ASSET_QUERY_VAR . '=$matches[1]',
@@ -298,6 +312,20 @@ class HubAdmin
     {
         $asset = (string) get_query_var(WPSUITE_VIRTUAL_ASSET_QUERY_VAR, '');
         $asset = strtok($asset, '?') ?: '';
+        if (preg_match('~^profile/(production|development)/([1-9][0-9]*)/(theme\\.css|lic\\.jws|config\\.enc|custom-translations\\.json)$~D', $asset, $match)) {
+            try {
+                BackendProfiles::runWithContext(['id' => $match[1], 'bindingRevision' => (int) $match[2]], function () use ($match): void {
+                    $this->siteSettings = BackendProfiles::settings();
+                    $this->serveVirtualAssetContent($match[3]);
+                });
+            } catch (\Throwable $error) { status_header(404); nocache_headers(); exit; }
+            return;
+        }
+        $this->serveVirtualAssetContent($asset);
+    }
+
+    private function serveVirtualAssetContent(string $asset): void
+    {
         if (!in_array($asset, array('theme.css', 'lic.jws', 'config.enc', 'custom-translations.json'), true)) {
             return;
         }
@@ -317,13 +345,17 @@ class HubAdmin
                 ? 'public, max-age=31536000, immutable'
                 : 'public, max-age=300, must-revalidate';
         } elseif ($asset === 'lic.jws') {
-            $content = get_option(WPSUITE_LICENSE_OPTION, '');
+            $content = get_option(BackendProfiles::optionName(WPSUITE_LICENSE_OPTION), '');
             $content_type = 'application/jose';
             $cache_control = 'private, no-cache, must-revalidate';
         } else {
-            $content = get_option(WPSUITE_CONFIG_OPTION, '');
+            $content = get_option(BackendProfiles::optionName(WPSUITE_CONFIG_OPTION), '');
             $content_type = 'text/plain; charset=UTF-8';
             $cache_control = 'private, no-cache, must-revalidate';
+        }
+
+        if (in_array($asset, array('lic.jws', 'config.enc'), true) && !$this->hasCurrentConfigBinding()) {
+            $content = '';
         }
 
         if (!is_string($content)
@@ -370,7 +402,11 @@ class HubAdmin
                 ? add_query_arg('autofocus[section]', WPSUITE_CUSTOM_CSS_SECTION, admin_url('customize.php'))
                 : '',
             'siteSettings' => array(
+                'workspaceId' => $this->siteSettings->workspaceId,
                 'accountId' => $this->siteSettings->accountId,
+                'workspaceApiMode' => $this->siteSettings->workspaceApiMode,
+                'platformApiBaseUrl' => $this->siteSettings->platformApiBaseUrl,
+                'platformConfigUrl' => $this->siteSettings->platformConfigUrl,
                 'siteId' => $this->siteSettings->siteId,
                 'siteKey' => is_admin() && current_user_can('manage_options') ? $this->siteSettings->siteKey : '',
                 'lastUpdate' => $this->siteSettings->lastUpdate,
@@ -387,6 +423,10 @@ class HubAdmin
                 'hubInstalled' => true,
             ),
         );
+        if (BackendProfiles::eligible()) {
+            $data['backendProfilesAvailable'] = true;
+            $data['backendProfile'] = BackendProfiles::captureContext();
+        }
         $encoded_data = wp_json_encode(
             $data,
             JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
@@ -429,7 +469,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             'smartcloud-wpsuite-amplify-vendor',
             SMARTCLOUD_WPSUITE_URL . 'assets/js/amplify-vendor.min.js',
             array("react", "react-dom"),
-            \SmartCloud\WPSuite\Hub\VERSION_AMPLIFY,
+            \SmartCloud\WPSuite\Hub\VERSION_AMPLIFY . '-' . substr(hash_file('sha256', SMARTCLOUD_WPSUITE_PATH . 'assets/js/amplify-vendor.min.js'), 0, 16),
             array('in_footer' => true, 'strategy' => 'defer')
         );
 
@@ -529,25 +569,25 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             // If the site is a subscriber, we need to check if the configuration and the license exist.
 
             /* ---- 1.  handling race-conditions (5-minute lock) ---- */
-            if (get_transient(WPSUITE_LICENSE_REFRESH_LOCK)) {
+            if (get_transient(BackendProfiles::optionName(WPSUITE_LICENSE_REFRESH_LOCK))) {
                 return;
             }
-            set_transient(WPSUITE_LICENSE_REFRESH_LOCK, 1, 5 * MINUTE_IN_SECONDS);
+            set_transient(BackendProfiles::optionName(WPSUITE_LICENSE_REFRESH_LOCK), 1, 5 * MINUTE_IN_SECONDS);
 
             /* ---- 2.  do we need to refresh? ---- */
             $need_refresh = false;
 
-            $stored_config = get_option(WPSUITE_CONFIG_OPTION, false);
-            $stored_license = get_option(WPSUITE_LICENSE_OPTION, false);
+            $stored_config = get_option(BackendProfiles::optionName(WPSUITE_CONFIG_OPTION), false);
+            $stored_license = get_option(BackendProfiles::optionName(WPSUITE_LICENSE_OPTION), false);
             $exists = is_string($stored_config) && $stored_config !== ''
                 && is_string($stored_license) && $stored_license !== '';
 
-            if (!$exists) {
+            if (!$exists || !$this->hasCurrentConfigBinding()) {
                 $need_refresh = true;
             }
 
             // 2/b) was the last successful refresh more than a week ago?
-            $last = (int) get_option(WPSUITE_LICENSE_REFRESH_OPTION, 0);
+            $last = (int) get_option(BackendProfiles::optionName(WPSUITE_LICENSE_REFRESH_OPTION), 0);
             if (time() - $last >= WEEK_IN_SECONDS) {
                 $need_refresh = true;
             }
@@ -561,7 +601,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 );
             }
             /* ---- 4.  unlock ---- */
-            delete_transient(WPSUITE_LICENSE_REFRESH_LOCK);
+            delete_transient(BackendProfiles::optionName(WPSUITE_LICENSE_REFRESH_LOCK));
         }
     }
 
@@ -655,46 +695,48 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             return $theme_css_urls;
         }
 
-        if (!empty($settings_param->accountId)) {
-            $this->siteSettings = new SiteSettings(
-                accountId: sanitize_text_field((string) $settings_param->accountId),
-                siteId: sanitize_text_field((string) ($settings_param->siteId ?? '')),
-                lastUpdate: (int) ($settings_param->lastUpdate ?? 0),
-                subscriber: (bool) ($settings_param->subscriber ?? false),
-                siteKey: sanitize_text_field((string) ($settings_param->siteKey ?? '')),
-                reCaptchaPublicKey: sanitize_text_field((string) ($settings_param->reCaptchaPublicKey ?? '')),
-                useRecaptchaNet: (bool) ($settings_param->useRecaptchaNet ?? false),
-                useRecaptchaEnterprise: (bool) ($settings_param->useRecaptchaEnterprise ?? false),
-                renderRecaptchaProvider: (bool) ($settings_param->renderRecaptchaProvider ?? true),
-                themeCssUrls: $theme_css_urls
-            );
-
-            $this->writeSiteSettingsOptions($this->siteSettings);
-        } else {
-            $this->siteSettings = new SiteSettings(
-                accountId: '',
-                siteId: '',
-                lastUpdate: 0,
-                subscriber: false,
-                siteKey: '',
-                reCaptchaPublicKey: sanitize_text_field((string) ($settings_param->reCaptchaPublicKey ?? '')),
-                useRecaptchaNet: (bool) ($settings_param->useRecaptchaNet ?? false),
-                useRecaptchaEnterprise: (bool) ($settings_param->useRecaptchaEnterprise ?? false),
-                renderRecaptchaProvider: (bool) ($settings_param->renderRecaptchaProvider ?? true),
-                themeCssUrls: $theme_css_urls
-            );
-            $this->writeSiteSettingsOptions($this->siteSettings);
+        try {
+            $identity = SiteSettings::normalizeIdentity(get_object_vars($settings_param));
+            $values = array_replace(get_object_vars($this->siteSettings), get_object_vars($settings_param), $identity);
+            $values['themeCssUrls'] = $theme_css_urls;
+            if ($identity['workspaceId'] !== '' && (!SiteSettings::usableSiteKey($values['siteKey'] ?? null)
+                || !is_string($values['siteId'] ?? null) || trim($values['siteId']) === '')) {
+                throw new \InvalidArgumentException('A site and valid connection key are required. Reconnect this site.');
+            }
+            foreach (array('siteId', 'reCaptchaPublicKey') as $field) {
+                if (isset($values[$field])) $values[$field] = sanitize_text_field((string) $values[$field]);
+            }
+            // A disconnect clears connection data while preserving unrelated future settings.
+            if ($identity['workspaceId'] === '') {
+                $values = array_replace($values, array('siteId' => '', 'siteKey' => '', 'lastUpdate' => 0, 'subscriber' => false));
+            }
+            $candidate = SiteSettings::fromArray($values);
+        } catch (\InvalidArgumentException $error) {
+            return new WP_Error('wpsuite_invalid_workspace_identity', $error->getMessage(), array('status' => 400));
         }
-
-        if ($this->siteSettings->subscriber) {
-            $this->reloadConfig(
-                $this->siteSettings->accountId,
-                $this->siteSettings->siteId,
-                $this->siteSettings->siteKey
-            );
-        } else {
+        if (BackendProfiles::enabled() && $candidate->connectionFingerprint() !== $this->siteSettings->connectionFingerprint()) {
+            return new WP_Error('backend_profile_rebind_requires_migration', 'This connection belongs to a backend profile. Configure a new profile or complete its migration before replacing its binding.', array('status' => 409));
+        }
+        try { $stored = SiteKeyStorage::encode($candidate); }
+        catch (\RuntimeException $error) {
+            return new WP_Error('wpsuite_site_key_storage_unavailable', 'The site connection could not be encrypted. Restore strong wp-config auth keys/salts or reconnect explicitly; the previous connection was preserved.', array('status' => 503, 'connectionUpdated' => false));
+        }
+        // Validate a paid connection before persisting its identity or replacing any prior assets.
+        $assets = $candidate->subscriber
+            ? $this->readConnectionConfig($candidate, $candidate->workspaceId, $candidate->siteId, $candidate->siteKey)
+            : null;
+        if ($candidate->subscriber && $assets === null) {
+            return new WP_Error('wpsuite_connection_refresh_failed',
+                'The new connection could not be verified. The previous connection was preserved. Retry before connecting.',
+                array('status' => 502, 'connectionUpdated' => false));
+        }
+        if (!$candidate->subscriber || $candidate->connectionFingerprint() !== $this->siteSettings->connectionFingerprint()) {
             $this->deleteConfig();
         }
+        $this->siteSettings = $candidate;
+        try { $this->writeSiteSettingsOptions($candidate, $stored); }
+        catch (\RuntimeException $error) { return new WP_Error('backend_profile_save_failed', 'The backend profile changed or could not be saved. Reload this page.', array('status' => 409)); }
+        if ($assets !== null) $this->storeConnectionConfig($candidate, $assets);
 
         return new WP_REST_Response(array('success' => true, 'message' => 'Site settings updated successfully.'), 200);
     }
@@ -710,25 +752,34 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
 
     private function migrateLegacyNamespaceOptions(): void
     {
+        if (BackendProfiles::enabled()) return;
         $canonical_key = SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/site-settings';
         $legacy_key = SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/site-settings';
         $canonical = get_option($canonical_key, null);
         $legacy = get_option($legacy_key, null);
 
         if ($canonical === null && $legacy !== null) {
-            update_option($canonical_key, $legacy, false);
+            try { update_option($canonical_key, SiteKeyStorage::encode($legacy), false); }
+            catch (\RuntimeException $error) { /* Never copy a plaintext credential when encryption is unavailable. */ }
         }
         update_option(WPSUITE_NAMESPACE_MIGRATION_OPTION, WPSUITE_NAMESPACE_MIGRATION_VERSION, false);
     }
 
-    private function writeSiteSettingsOptions(SiteSettings $settings): void
+    private function writeSiteSettingsOptions(SiteSettings|array $settings, mixed $stored = null): void
     {
-        update_option(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/site-settings', $settings, false);
-        update_option(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/site-settings', $settings, false);
+        if (BackendProfiles::enabled()) {
+            BackendProfiles::saveConnection($settings instanceof SiteSettings ? $settings : SiteSettings::fromArray($settings));
+            return;
+        }
+        $stored = $stored ?? SiteKeyStorage::encode($settings);
+        update_option(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/site-settings', $stored, false);
+        update_option(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/site-settings', $stored, false);
     }
 
     private function getVirtualAssetBaseUrl(): string
     {
+        $profileUrl = BackendProfiles::assetBaseUrl();
+        if ($profileUrl !== null) return $profileUrl;
         if ((string) get_option('permalink_structure', '') !== '') {
             return trailingslashit(home_url('/' . WPSUITE_VIRTUAL_ASSET_PATH));
         }
@@ -838,21 +889,38 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         return str_replace(array("\r\n", "\r"), "\n", trim($value));
     }
 
-    private function reloadConfig(string $accountId, string $siteId, string $siteKey): bool
+    private function reloadConfig(string $workspaceId, string $siteId, string $siteKey): bool
     {
-        $api_base = 'https://api.wpsuite.io';
+        $assets = $this->readConnectionConfig($this->siteSettings, $workspaceId, $siteId, $siteKey);
+        if ($assets === null) return false;
+        $this->storeConnectionConfig($this->siteSettings, $assets);
+        return true;
+    }
 
-        // Ha a WordPress-URL tartalmazza a dev-domaint, akkor /dev-et fűzünk hozzá
-        if (strpos(get_site_url(), 'dev.wpsuite.io') !== false) {
-            $api_base .= '/dev';
+    private function readConnectionConfig(SiteSettings $settings, string $workspaceId, string $siteId, string $siteKey): ?array
+    {
+        if ($workspaceId === '' || $siteId === '' || !SiteSettings::usableSiteKey($siteKey)
+            || $settings->workspaceId !== $workspaceId || $settings->siteId !== $siteId
+            || $settings->siteKey !== $siteKey) return null;
+        $api_base = $settings->platformApiBaseUrl;
+        if ($api_base === '') {
+            $api_base = strtolower((string) parse_url(get_site_url(), PHP_URL_HOST)) === 'dev.wpsuite.io'
+                ? 'https://api-dev.wpsuite.io'
+                : 'https://api.wpsuite.io';
+            $api_base = BackendProfiles::legacyApiBase($api_base);
         }
 
         $endpoint = sprintf(
-            '%s/account/%s/site/%s/license',
+            '%s/%s/%s/site/%s/license',
             $api_base,
-            rawurlencode($accountId),
+            $settings->workspaceApiMode === 'workspace' ? 'workspace' : 'account',
+            rawurlencode($workspaceId),
             rawurlencode($siteId)
         );
+        // Existing paid runtimes retain their pinned v1 verifier until a separate trust-key migration.
+        if ($settings->workspaceApiMode === 'workspace') {
+            $endpoint .= '?licenseVersion=1';
+        }
 
         $args = [
             'headers' => [
@@ -860,32 +928,66 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
                 'X-Site-Key' => $siteKey,
             ],
             'timeout' => 10,
+            'redirection' => 0,
         ];
 
         $response = wp_remote_get($endpoint, $args);
 
         if (is_wp_error($response) || 200 !== wp_remote_retrieve_response_code($response)) {
-            return false;
+            return null;
         }
 
         $data = json_decode(wp_remote_retrieve_body($response), true);
         $config = is_array($data) ? trim((string) ($data['config'] ?? '')) : '';
         $jws = is_array($data) ? trim((string) ($data['jws'] ?? '')) : '';
         if (!$this->isValidEncryptedConfig($config) || !$this->isValidCompactJws($jws)) {
-            return false;
+            return null;
         }
 
-        update_option(WPSUITE_CONFIG_OPTION, $config, false);
-        update_option(WPSUITE_LICENSE_OPTION, $jws, false);
-        update_option(WPSUITE_LICENSE_REFRESH_OPTION, time(), false);
-        return true;
+        $this->retainConnectionKey($settings);
+        return array('config' => $config, 'jws' => $jws);
+    }
+
+    /** A healthy licence refresh may retain this same key; retention never rotates or blocks Pro. */
+    private function retainConnectionKey(SiteSettings $settings): void
+    {
+        if ($settings->workspaceApiMode !== 'workspace' || $settings->platformApiBaseUrl === ''
+            || $settings->platformConfigUrl === '' || !SiteSettings::usableSiteKey($settings->siteKey)) return;
+        try {
+            wp_remote_post(sprintf('%s/workspace/%s/site/%s/site-key/retain', $settings->platformApiBaseUrl,
+                rawurlencode($settings->workspaceId), rawurlencode($settings->siteId)), array(
+                'headers' => array('Accept' => 'application/json', 'X-Site-Key' => $settings->siteKey),
+                'timeout' => 5, 'redirection' => 0, 'cookies' => array(),
+            ));
+        } catch (\Throwable $error) { /* Retention is additive; existing licence/config remains usable. */ }
+    }
+
+    private function storeConnectionConfig(SiteSettings $settings, array $assets): void
+    {
+        if (BackendProfiles::saveAssets($settings, $assets)) return;
+        // Write the binding last: partially updated assets must never appear valid.
+        delete_option(BackendProfiles::optionName(WPSUITE_LICENSE_BINDING_OPTION));
+        update_option(BackendProfiles::optionName(WPSUITE_CONFIG_OPTION), $assets['config'], false);
+        update_option(BackendProfiles::optionName(WPSUITE_LICENSE_OPTION), $assets['jws'], false);
+        update_option(BackendProfiles::optionName(WPSUITE_LICENSE_REFRESH_OPTION), time(), false);
+        update_option(BackendProfiles::optionName(WPSUITE_LICENSE_BINDING_OPTION), $settings->connectionFingerprint(), false);
+    }
+
+    private function hasCurrentConfigBinding(): bool
+    {
+        $binding = get_option(BackendProfiles::optionName(WPSUITE_LICENSE_BINDING_OPTION), '');
+        return $this->siteSettings->subscriber && SiteSettings::usableSiteKey($this->siteSettings->siteKey)
+            && $this->siteSettings->workspaceId !== '' && $this->siteSettings->siteId !== ''
+            && is_string($binding) && hash_equals($this->siteSettings->connectionFingerprint(), $binding);
     }
 
     private function deleteConfig(): void
     {
-        delete_option(WPSUITE_CONFIG_OPTION);
-        delete_option(WPSUITE_LICENSE_OPTION);
-        delete_option(WPSUITE_LICENSE_REFRESH_OPTION);
+        if (BackendProfiles::clearAssets()) return;
+        delete_option(BackendProfiles::optionName(WPSUITE_LICENSE_BINDING_OPTION));
+        delete_option(BackendProfiles::optionName(WPSUITE_CONFIG_OPTION));
+        delete_option(BackendProfiles::optionName(WPSUITE_LICENSE_OPTION));
+        delete_option(BackendProfiles::optionName(WPSUITE_LICENSE_REFRESH_OPTION));
     }
 
     private function isValidCompactJws(string $value): bool
@@ -900,7 +1002,8 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
 
     private function migrateLegacyLicenseFiles(): void
     {
-        if (get_option(WPSUITE_CONFIG_OPTION, '') !== '' && get_option(WPSUITE_LICENSE_OPTION, '') !== '') {
+        if (BackendProfiles::enabled()) return;
+        if (get_option(BackendProfiles::optionName(WPSUITE_CONFIG_OPTION), '') !== '' && get_option(BackendProfiles::optionName(WPSUITE_LICENSE_OPTION), '') !== '') {
             return;
         }
 
@@ -920,10 +1023,10 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             return;
         }
 
-        update_option(WPSUITE_CONFIG_OPTION, $config, false);
-        update_option(WPSUITE_LICENSE_OPTION, $jws, false);
+        update_option(BackendProfiles::optionName(WPSUITE_CONFIG_OPTION), $config, false);
+        update_option(BackendProfiles::optionName(WPSUITE_LICENSE_OPTION), $jws, false);
         $legacy_refresh = (int) get_option(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/license-last-refresh', time());
-        update_option(WPSUITE_LICENSE_REFRESH_OPTION, $legacy_refresh, false);
+        update_option(BackendProfiles::optionName(WPSUITE_LICENSE_REFRESH_OPTION), $legacy_refresh, false);
     }
 
 }

@@ -1,4 +1,6 @@
-import { get, patch } from "@aws-amplify/api";
+import { Amplify } from "aws-amplify";
+import { fetchRecoverableSiteKey, fetchSiteInfoWithSiteKey, rememberCreatedSite } from "./site-info";
+import { get, patch, workspaceLicensePath } from "../workspace-api";
 import { fetchUserAttributes } from "@aws-amplify/auth";
 import {
   Authenticator,
@@ -22,6 +24,7 @@ import {
   Menu,
   Modal,
   Pagination,
+  PasswordInput,
   Radio,
   rem,
   SegmentedControl,
@@ -46,6 +49,7 @@ import { notifications } from "@mantine/notifications";
 import {
   getConfig,
   getWpSuite,
+  resolveWorkspaceId,
   TEXT_DOMAIN,
   type SiteSettings,
   type SubscriptionType,
@@ -77,12 +81,13 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { __ } from "@wordpress/i18n";
-import * as API from "aws-amplify/api";
+import * as API from "../workspace-api";
 import { zod4Resolver } from "mantine-form-zod-resolver";
 import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FunctionComponent,
 } from "react";
@@ -90,6 +95,7 @@ import { z } from "zod";
 import { type LicenseHandlerProps } from "./index";
 import classes from "./settings.module.css";
 import { EmailSkeleton, FullSkeleton } from "./skeletons";
+import { connectionKeyInputBinding, enteredConnectionKey, connectionIdentity, createPendingSiteKey, failureStatus, reusableLocalSiteKey, usableSiteKey, validateRotationResponse, type PendingSiteKey } from "./site-connection";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -121,6 +127,7 @@ export interface Site {
   accountId: string;
   siteId: string;
   siteKey?: string;
+  siteKeyId?: string;
   name: string;
   domain: string;
   subscriptionType?: SubscriptionType;
@@ -250,7 +257,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["site", accountId, siteId],
+        queryKey: ["site", accountId, siteId, apiUrl, wpsuite?.siteSettings?.workspaceApiMode, wpsuite?.siteSettings?.platformApiBaseUrl, wpsuite?.siteSettings?.platformConfigUrl],
       });
     },
   });
@@ -428,10 +435,10 @@ export const Settings: FunctionComponent<SettingsProps> = (
     enabled: !!accountId && authStatus === "authenticated",
   });
 
-  const { isError: isSiteError, isPending: isSitePending, isLoading: isSiteLoading } = useQuery({
-    queryKey: ["site", accountId, siteId],
+  const { isError: isSiteError, error: siteError, isPending: isSitePending, isLoading: isSiteLoading } = useQuery({
+    queryKey: ["site", accountId, siteId, apiUrl, wpsuite?.siteSettings?.workspaceApiMode, wpsuite?.siteSettings?.platformApiBaseUrl, wpsuite?.siteSettings?.platformConfigUrl],
     queryFn: () =>
-      fetchSite(accountId!, siteId!, siteKey)
+      fetchSite(accountId!, siteId!, siteKey, getWpSuite()?.siteSettings, apiUrl)
         .then((data) => {
           setSubscriptionType(data.subscriptionType ?? null);
           setSubscription(data.subscription);
@@ -462,7 +469,11 @@ export const Settings: FunctionComponent<SettingsProps> = (
           "X-WP-Nonce": nonce!,
         },
         body: JSON.stringify({
-          accountId: siteSettings ? siteSettings.accountId : accountId,
+          workspaceId: siteSettings ? resolveWorkspaceId(siteSettings) : accountId,
+          accountId: siteSettings ? resolveWorkspaceId(siteSettings) : accountId,
+          workspaceApiMode: siteSettings?.workspaceApiMode ?? currentSettings.workspaceApiMode,
+          platformApiBaseUrl: siteSettings?.platformApiBaseUrl ?? currentSettings.platformApiBaseUrl,
+          platformConfigUrl: siteSettings?.platformConfigUrl ?? currentSettings.platformConfigUrl,
           siteId: siteSettings ? siteSettings.siteId : siteId,
           siteKey: siteSettings ? siteSettings.siteKey : siteKey,
           lastUpdate: new Date().getTime(),
@@ -782,7 +793,8 @@ export const Settings: FunctionComponent<SettingsProps> = (
     }
   }, [accountId, amplifyConfigured, authStatus, queryClient, siteId]);
 
-  const verifiedPlan = isSiteError || !loadSiteEnabled
+  const connectionIncomplete = Boolean(accountId && siteId && !usableSiteKey(siteKey));
+  const verifiedPlan = isSiteError || connectionIncomplete || !loadSiteEnabled
     ? __("Plan unavailable", TEXT_DOMAIN)
     : !site || isSitePending
       ? __("Checking plan", TEXT_DOMAIN)
@@ -820,19 +832,14 @@ export const Settings: FunctionComponent<SettingsProps> = (
             }}
           >
             <SiteSelector
+              apiUrl={apiUrl}
               authStatus={authStatus}
               accountId={ownAccountId ?? accountId}
               siteId={siteId}
               siteKey={siteKey}
               subscriber={!!subscriptionType}
               onClose={() => stack.close("connect-your-site")}
-              onConnect={(siteSettings: SiteSettings) => {
-                return new Promise((resolve) => {
-                  saveSiteSettingsMutation.mutate(siteSettings, {
-                    onSettled: () => resolve(),
-                  });
-                });
-              }}
+              onConnect={(siteSettings: SiteSettings) => saveSiteSettingsMutation.mutateAsync(siteSettings).then(() => undefined)}
             />
           </Authenticator>
         </Modal>
@@ -930,7 +937,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
       {compactConnected && <Card component="section" aria-label={__("Site connection summary", TEXT_DOMAIN)} withBorder p="md" radius="md">
         <Group justify="space-between" align="center" gap="md">
           <Stack gap={4} style={{ minWidth: 0, flex: "1 1 200px" }}>
-            <Group gap="sm"><Title order={2} size="h4">{__("Site connection", TEXT_DOMAIN)}</Title><Badge color={isSiteError ? "red" : "green"}>{isSiteError ? __("Unreachable", TEXT_DOMAIN) : __("Connected", TEXT_DOMAIN)}</Badge></Group>
+            <Group gap="sm"><Title order={2} size="h4">{__("Site connection", TEXT_DOMAIN)}</Title><Badge color={isSiteError || connectionIncomplete ? "red" : "green"}>{isSiteError || connectionIncomplete ? __("Connection incomplete", TEXT_DOMAIN) : __("Connected", TEXT_DOMAIN)}</Badge></Group>
             <Text size="sm" style={{ overflowWrap: "anywhere" }}>{site?.name ?? (isSiteLoading ? __("Loading site…", TEXT_DOMAIN) : __("Site unavailable", TEXT_DOMAIN))}{(site?.account?.name ?? account?.name) && <> · {site?.account?.name ?? account?.name}</>}</Text>
           </Stack>
           <Group gap="sm" wrap="wrap">
@@ -1025,14 +1032,13 @@ export const Settings: FunctionComponent<SettingsProps> = (
               (((!isSitePending && !siteId) || isSiteError) && (
                 <Alert
                   color="red"
-                  title="Access denied – You don’t have access to this site’s PRO configuration"
+                  title={failureStatus(siteError) === 403 ? "Connection access denied" : "Site connection could not be verified"}
                   icon={<IconAlertCircle />}
                   w="100%"
                 >
                   <Text size="sm" mb="xs">
-                    You’re logged in to WordPress as an admin, but the Gatey
-                    account you used isn’t on the allowed members list for this
-                    connected site.
+                    The connected site could not be verified. Check the selected workspace,
+                    sign in if needed, and reconnect using a valid connection key.
                   </Text>
                 </Alert>
               )))}
@@ -1170,12 +1176,7 @@ export const Settings: FunctionComponent<SettingsProps> = (
                                               );
                                               component.trigger("select");
                                               navigator.clipboard.writeText(
-                                                apiUrl +
-                                                  "/account/" +
-                                                  site.accountId +
-                                                  "/site/" +
-                                                  site.siteId +
-                                                  "/license",
+                                                apiUrl + workspaceLicensePath(`/account/${encodeURIComponent(site.accountId)}/site/${encodeURIComponent(site.siteId)}/license`),
                                               );
                                               notifications.show({
                                                 title: "License URL copied",
@@ -1406,6 +1407,7 @@ const CreateSiteSchema = z.object({
 type CreateSiteInput = z.infer<typeof CreateSiteSchema>;
 
 interface SiteSelectorProps {
+  apiUrl: string;
   authStatus: "authenticated" | "unauthenticated" | "configuring";
   accountId?: string;
   siteId?: string;
@@ -1416,11 +1418,11 @@ interface SiteSelectorProps {
 }
 
 function SiteSelector({
+  apiUrl,
   authStatus,
   accountId,
   siteId,
   siteKey,
-  subscriber,
   onClose,
   onConnect,
 }: SiteSelectorProps) {
@@ -1435,12 +1437,22 @@ function SiteSelector({
   const [selectedSiteId, setSelectedSiteId] = useState<string | undefined>(
     siteId,
   );
-  const [selectedSiteKey, setSelectedSiteKey] = useState<string | undefined>(
-    siteKey,
-  );
-  const [selectedSiteSubscriber, setSelectedSiteSubscriber] = useState<
-    boolean | undefined
-  >(subscriber);
+  const oneTimeKeys = useRef(new Map<string, string>());
+  const pendingReplacements = useRef(new Map<string, PendingSiteKey>());
+  const [connectionError, setConnectionError] = useState<string>();
+  const connectionTarget = useCallback((workspaceId: string, selectedId: string): SiteSettings => ({
+    ...getWpSuite()?.siteSettings,
+    workspaceId,
+    accountId: workspaceId,
+    siteId: selectedId,
+  }), []);
+
+  const [enteredKey, setEnteredKey] = useState<{ binding: string; key: string }>();
+  const [unavailableKeyBinding, setUnavailableKeyBinding] = useState<string>();
+  const inputBinding = selectedAccountId && selectedSiteId
+    ? connectionKeyInputBinding(connectionTarget(selectedAccountId, selectedSiteId), apiUrl) : "";
+  if (enteredKey && enteredKey.binding !== inputBinding) setEnteredKey(undefined);
+  if (unavailableKeyBinding && unavailableKeyBinding !== inputBinding) setUnavailableKeyBinding(undefined);
 
   const [filter, setFilter] = useState("");
   const [order, setOrder] = useState<"name" | "domain">("name"); // ÚJ
@@ -1468,7 +1480,7 @@ function SiteSelector({
         .then((result) => {
           const data = result as unknown as Account[];
           if (!selectedAccountId) {
-            setSelectedAccountId(data[0].accountId);
+            setSelectedAccountId(data[0]?.accountId);
           }
           return data;
         })
@@ -1613,20 +1625,18 @@ function SiteSelector({
             icon: <IconInfoCircle />,
             className: classes["notification"],
           });
-          return result as unknown as Site;
-        })
-        .catch((err) => {
-          console.error("Error:", (err as Error).message);
-          notifications.show({
-            title: __("Error occured", TEXT_DOMAIN),
-            message: (err as Error).message,
-            color: "red",
-            icon: <IconAlertCircle />,
-            className: classes["notification"],
-          });
+          const created = result as unknown as Site;
+          if (!siteDetails.siteId && created.siteId) {
+            const metadata = rememberCreatedSite(created, connectionTarget(selectedAccountId!, created.siteId), oneTimeKeys.current);
+            if (usableSiteKey(created.siteKey)) setSelectedSiteId(created.siteId);
+            return metadata as Site;
+          }
+          const { siteKey: _oneTimeKey, ...metadata } = created;
+          void _oneTimeKey;
+          return metadata as Site;
         });
 
-      return result as unknown as Site;
+      return result as Site;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sites", selectedAccountId] });
@@ -1679,8 +1689,7 @@ function SiteSelector({
       if (selectedSiteId === siteId) {
         setSelectedAccountId(undefined);
         setSelectedSiteId(undefined);
-        setSelectedSiteKey(undefined);
-        setSelectedSiteSubscriber(undefined);
+
       }
     },
   });
@@ -1693,6 +1702,85 @@ function SiteSelector({
   if (accountsPending) {
     return <SiteSelectorSkeleton />;
   }
+
+  const handleConnect = (replaceRequested = false) => {
+            const selected = sites.find(item => item.siteId === selectedSiteId);
+            if (!selected || !selectedAccountId) return;
+            const target = connectionTarget(selectedAccountId, selected.siteId);
+            const binding = connectionIdentity(target);
+            const local = reusableLocalSiteKey(getWpSuite()?.siteSettings ?? { accountId, siteId, siteKey }, target);
+            let suppliedKey: string | undefined;
+            try { suppliedKey = enteredConnectionKey(enteredKey, target, apiUrl); }
+            catch (error) { setConnectionError((error as Error).message); return; }
+            const availableKey = suppliedKey ?? oneTimeKeys.current.get(binding) ??
+              (target.workspaceApiMode !== "workspace" && usableSiteKey(selected.siteKey) ? selected.siteKey : undefined) ?? local;
+            const connect = async (replace = false) => {
+              setSiteConnecting(true);
+              setConnectionError(undefined);
+              setUnavailableKeyBinding(undefined);
+              let recoveringKey = false;
+              try {
+                let key = availableKey;
+                if (replace) {
+                  let pending = pendingReplacements.current.get(binding);
+                  if (!pending) {
+                    pending = createPendingSiteKey(target, selected.siteKeyId ?? "");
+                    pendingReplacements.current.set(binding, pending);
+                  }
+                  const response = await API.put({
+                    apiName: "backend",
+                    path: `/workspace/${encodeURIComponent(selectedAccountId)}/site/${encodeURIComponent(selected.siteId)}/site-key`,
+                    options: { body: { siteKey: pending.siteKey, expectedSiteKeyId: pending.expectedSiteKeyId, requestId: pending.requestId } },
+                  }).response;
+                  validateRotationResponse(await response.body.json());
+                  key = pending.siteKey;
+                  oneTimeKeys.current.set(binding, key);
+                }
+                if (!usableSiteKey(key) && target.workspaceApiMode === "workspace") {
+                  recoveringKey = true;
+                  key = await fetchRecoverableSiteKey(target, apiUrl, Amplify.getConfig().API?.REST?.backend?.endpoint, async (path) => {
+                    const response = await API.get({ apiName: "backend", path }).response;
+                    return response.body.json();
+                  });
+                  recoveringKey = false;
+                  oneTimeKeys.current.set(binding, key);
+                }
+                if (!usableSiteKey(key)) throw new Error("A valid connection key is required. Enter the existing site key or explicitly create a replacement.");
+                const verified = await fetchSite(selectedAccountId, selected.siteId, key, target, apiUrl);
+                if (verified.siteId !== selected.siteId || resolveWorkspaceId(verified) !== selectedAccountId) {
+                  throw new Error("The verified connection belongs to a different workspace or site.");
+                }
+                await onConnect({ ...target, siteKey: key, subscriber: selected.subscriptionType === "PROFESSIONAL" || selected.subscriptionType === "AGENCY" });
+              } catch (error) {
+                if (recoveringKey && failureStatus(error) === 409) {
+                  setUnavailableKeyBinding(connectionKeyInputBinding(target, apiUrl));
+                }
+                setConnectionError(failureStatus(error) === 403
+                  ? "The backend denied this connection. Verify your workspace permissions and connection key."
+                  : failureStatus(error) === 409
+                    ? "The existing connection key is unavailable or changed. Enter a known key, or explicitly create a replacement if appropriate."
+                    : error instanceof Error ? error.message : "The connection could not be verified. Please try again.");
+              } finally {
+                setSiteConnecting(false);
+              }
+            };
+            if (!replaceRequested) {
+              void connect(); return;
+            }
+            if (target.workspaceApiMode !== "workspace") {
+              setConnectionError("The site has no usable connection key. Reconnect using a valid site credential.");
+              return;
+            }
+            modals.openConfirmModal({
+              title: "Replace connection key and connect",
+              children: <Text>Replacing this site's connection key requires workspace owner or administrator access. Other installations using the previous key will need to reconnect. Continue?</Text>,
+              labels: { confirm: "Replace connection key and connect", cancel: "Cancel" },
+              confirmProps: { color: "red" },
+              onConfirm: () => { void connect(true); },
+              zIndex: 100003,
+              centered: true,
+            });
+  };
 
   return (
     <>
@@ -1709,14 +1797,12 @@ function SiteSelector({
               height={80}
               mb="md"
               value={selectedAccountId}
+              disabled={siteConnecting}
               onChange={(value) => {
                 if (value) {
                   setSelectedAccountId(value);
                   setSelectedSiteId(value === accountId ? siteId : undefined);
-                  setSelectedSiteKey(value === accountId ? siteKey : undefined);
-                  setSelectedSiteSubscriber(
-                    value === accountId ? subscriber : undefined,
-                  );
+                  setConnectionError(undefined);
                   setActivePage(1);
                   setSiteEditing(false);
                 }
@@ -1734,23 +1820,11 @@ function SiteSelector({
             label="Select a site"
             description="Select a site to connect this WordPress instance to"
             mb="md"
-            defaultValue={siteId + "|" + siteKey + "|" + subscriber}
-            value={
-              selectedSiteId +
-              "|" +
-              selectedSiteKey +
-              "|" +
-              selectedSiteSubscriber
-            }
+            value={selectedSiteId ?? ""}
             onChange={(value) => {
-              const values = value.split("|");
-              setSelectedSiteId(values[0]);
-              if (values.length > 1) {
-                setSelectedSiteKey(values[1]);
-              }
-              if (values.length > 2) {
-                setSelectedSiteSubscriber(values[2] === "true");
-              }
+              if (siteConnecting) return;
+              setSelectedSiteId(value);
+              setConnectionError(undefined);
             }}
           >
             <Group gap="xs" mt="xs">
@@ -1826,15 +1900,9 @@ function SiteSelector({
                         component="div"
                         p="md"
                         radius="md"
-                        value={
-                          site.siteId +
-                          "|" +
-                          site.siteKey +
-                          "|" +
-                          Boolean(site.subscriptionType)
-                        }
+                        value={site.siteId}
                         key={site.siteId}
-                        disabled={siteEditing}
+                        disabled={siteEditing || siteConnecting}
                       >
                         <Group wrap="nowrap" align="flex-start">
                           <Radio.Indicator />
@@ -2060,34 +2128,46 @@ function SiteSelector({
         </>
       )}
 
-      <Group justify="space-between">
-        <Button
-          variant="outline"
-          onClick={onClose}
-          leftSection={<IconLogout size={16} />}
-        >
-          Close
-        </Button>
+      <Stack gap="md">
+        {connectionError && <Alert color="red" title="Connection could not be completed">{connectionError}</Alert>}
+        {unavailableKeyBinding === inputBinding && !!inputBinding && !siteEditing && (
+          <Stack gap="sm">
+            <PasswordInput
+              label={__("Existing connection key", TEXT_DOMAIN)}
+              description={__("This site's saved key is unavailable. If you have a copy, enter it here to connect.", TEXT_DOMAIN)}
+              value={enteredKey?.binding === inputBinding ? enteredKey.key : ""}
+              onChange={(event) => setEnteredKey({ binding: inputBinding, key: event.currentTarget.value })}
+              autoComplete="off"
+              disabled={siteConnecting}
+            />
+            {getWpSuite()?.siteSettings?.workspaceApiMode === "workspace" && (
+              <Group justify="flex-start">
+                <Button variant="subtle" color="red" onClick={() => handleConnect(true)} disabled={siteConnecting}>
+                  {__("Replace the unavailable key…", TEXT_DOMAIN)}
+                </Button>
+              </Group>
+            )}
+          </Stack>
+        )}
+        <Group justify="space-between" wrap="nowrap">
+          <Button
+            variant="outline"
+            onClick={() => { setEnteredKey(undefined); oneTimeKeys.current.clear(); pendingReplacements.current.clear(); onClose(); }}
+            disabled={siteConnecting}
+          >
+            Close
+          </Button>
         <Button
           variant="gradient"
-          onClick={() => {
-            setSiteConnecting(true);
-            onConnect({
-              accountId: selectedAccountId,
-              siteId: selectedSiteId,
-              siteKey: selectedSiteKey,
-              subscriber: selectedSiteSubscriber,
-            }).then(() => {
-              setSiteConnecting(false);
-            });
-          }}
+          onClick={() => handleConnect()}
           leftSection={<IconLink size={16} />}
-          disabled={!!sitesError || siteEditing}
+          disabled={!!sitesError || siteEditing || !selectedAccountId || !sites.some(item => item.siteId === selectedSiteId)}
           loading={siteConnecting}
         >
-          Connect
+          {__("Connect", TEXT_DOMAIN)}
         </Button>
-      </Group>
+        </Group>
+      </Stack>
     </>
   );
 }
@@ -2101,19 +2181,19 @@ async function fetchAccount(accountId: string) {
   return body as unknown as Account;
 }
 
-async function fetchSite(accountId: string, siteId: string, siteKey?: string) {
-  const options = {
-    apiName: "backend",
-    path: `/account/${accountId}/site/${siteId}${siteKey ? "/settings" : ""}`,
-    options: {
-      headers: {},
-    },
-  };
-  if (siteKey) {
-    (options.options.headers as Record<string, string>)["X-Site-Key"] = siteKey;
+async function fetchSite(accountId: string, siteId: string, siteKey?: string, target?: SiteSettings, apiBaseUrl?: string) {
+  if (siteKey !== undefined && !usableSiteKey(siteKey)) {
+    throw new Error("The stored connection key is incomplete. Reconnect this site.");
   }
-  const response = await get(options).response;
-  const body = await response.body.json();
-
-  return body as unknown as Site;
+  if (usableSiteKey(siteKey)) {
+    if (!target || !apiBaseUrl || resolveWorkspaceId(target) !== accountId || target.siteId !== siteId) {
+      throw new Error("The selected site connection is incomplete.");
+    }
+    return await fetchSiteInfoWithSiteKey(target, apiBaseUrl, siteKey) as unknown as Site;
+  }
+  const response = await get({
+    apiName: "backend",
+    path: `/account/${encodeURIComponent(accountId)}/site/${encodeURIComponent(siteId)}`,
+  }).response;
+  return await response.body.json() as unknown as Site;
 }

@@ -1,3 +1,12 @@
+import { normalizeWorkspaceIdentity, resolveWorkspaceId } from "./workspace";
+import type { WorkspaceIdentity, WorkspaceApiMode } from "./workspace";
+import { installBackendProfileGuards } from "./backend-profile";
+import type { BackendProfileContext } from "./backend-profile";
+export { getBackendProfileContext, assertBackendProfileConfiguration, parseBackendProfile, backendProfileIdentity, resolveBackendProfileLegacyTargets, backendProfileHeaders, assertBackendProfileCurrent, assertBackendProfileFresh, markBackendProfileStale, announceBackendProfileChange, installBackendProfileGuards, backendProfileStorageKey, createBackendProfileStorage, BackendProfileChangedError } from "./backend-profile";
+export type { BackendProfileContext, BackendProfileIdentity } from "./backend-profile";
+export { resolveWorkspaceId, normalizeWorkspaceIdentity, workspaceApiMode, workspaceManagementIds } from "./workspace";
+export type { WorkspaceIdentity, WorkspaceApiMode } from "./workspace";
+
 declare global {
   var WpSuite: WpSuiteGlobal | undefined;
 }
@@ -50,10 +59,20 @@ export interface WpSuiteGlobal {
 
   plugins: WpSuitePluginRegistry;
   events?: WpSuiteEvents;
+  backendProfilesAvailable?: boolean;
+  backendProfile?: BackendProfileContext;
 }
 
 export function getWpSuite(): WpSuiteGlobal | undefined {
-  return globalThis.WpSuite;
+  const suite = globalThis.WpSuite;
+  if (suite) {
+    installBackendProfileGuards();
+    const id = resolveWorkspaceId(suite.siteSettings);
+    if (suite.siteSettings.workspaceId !== id || suite.siteSettings.accountId !== id) {
+      suite.siteSettings = normalizeWorkspaceIdentity(suite.siteSettings);
+    }
+  }
+  return suite;
 }
 
 export function getPlugin<K extends string>(
@@ -67,8 +86,11 @@ export { attachDefaultPluginRuntime } from "./runtime";
 
 export const TEXT_DOMAIN = "smartcloud-wpsuite";
 
-export interface SiteSettings {
-  accountId?: string;
+export interface SiteSettings extends WorkspaceIdentity {
+  workspaceApiMode?: WorkspaceApiMode;
+  /** Explicit operator-owned platform binding for a private or alternate backend. */
+  platformApiBaseUrl?: string;
+  platformConfigUrl?: string;
   siteId?: string;
   lastUpdate?: number;
   subscriber?: boolean;
@@ -106,3 +128,6 @@ export {
   type TranslationLoadFailure,
   type TranslationLoadOptions,
 } from "./translation-loader";
+
+export { getSitePluginSettings, putSitePluginSettings } from "./site-configuration";
+export type { SiteConfigurationTarget, SiteConfigurationResult } from "./site-configuration";

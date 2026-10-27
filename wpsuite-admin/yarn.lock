@@ -4900,10 +4900,10 @@
     lodash "4.18.1"
     tslib "^2.5.2"
 
-"@smart-cloud/wpsuite-core@^2.4.3":
-  version "2.4.3"
-  resolved "https://registry.npmjs.org/@smart-cloud/wpsuite-core/-/wpsuite-core-2.4.3.tgz#69d052a512e1d4a1a35729296d464efbe89bf74e"
-  integrity sha512-4Dv8U3inJxVUZvKE/Oq74AU/IkwTOeiHCu8i7fV7aaqQvlebImhq3fwEo75NNrfKIhsBR9jHkVUVyUe/P9HFGQ==
+"@smart-cloud/wpsuite-core@^2.5.0":
+  version "2.5.0"
+  resolved "https://registry.npmjs.org/@smart-cloud/wpsuite-core/-/wpsuite-core-2.5.0.tgz#8d2d5c99f245ae6ddcc95e828af404087b1ea89b"
+  integrity sha512-ZNrHjDwuZ2xWXKdtttJkXZEA3RjdhFhqBLfzzgBvE04yRPKdDYRSXoGRery+0UnqkuO36PvVYqimPBYTrQizMQ==
   dependencies:
     tldts "^7.4.12"
 
@@ -15857,7 +15857,7 @@ zod@^3.24.1:
   resolved "https://registry.npmjs.org/zod/-/zod-4.2.1.tgz#07f0388c7edbfd5f5a2466181cb4adf5b5dbd57b"
   integrity sha512-0wZ1IRqGGhMP76gLqz8EyfBXKk0J2qo2+H3fi4mcUP/KtTocoX08nmIAHl1Z2kJIZbZee8KOpBCSNPRgauucjw==
 
-zod@^4.5.4:
-  version "4.5.4"
-  resolved "https://registry.npmjs.org/zod/-/zod-4.5.4.tgz#e215c62420c528dd7951e31fb52c5438f1fd184a"
-  integrity sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==
+zod@^4.6.6:
+  version "4.6.7"
+  resolved "https://registry.npmjs.org/zod/-/zod-4.6.7.tgz#e806cf64a7f4e37635ce9f2f52c04c3766f75e5b"
+  integrity sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==

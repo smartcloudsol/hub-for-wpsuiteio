@@ -1,3 +1,9 @@
+import type { WorkspaceIdentity, WorkspaceApiMode } from "./workspace";
+import type { BackendProfileContext } from "./backend-profile";
+export { getBackendProfileContext, assertBackendProfileConfiguration, parseBackendProfile, backendProfileIdentity, resolveBackendProfileLegacyTargets, backendProfileHeaders, assertBackendProfileCurrent, assertBackendProfileFresh, markBackendProfileStale, announceBackendProfileChange, installBackendProfileGuards, backendProfileStorageKey, createBackendProfileStorage, BackendProfileChangedError } from "./backend-profile";
+export type { BackendProfileContext, BackendProfileIdentity } from "./backend-profile";
+export { resolveWorkspaceId, normalizeWorkspaceIdentity, workspaceApiMode, workspaceManagementIds } from "./workspace";
+export type { WorkspaceIdentity, WorkspaceApiMode } from "./workspace";
 declare global {
     var WpSuite: WpSuiteGlobal | undefined;
 }
@@ -30,14 +36,19 @@ export interface WpSuiteGlobal {
     view: WpSuiteView;
     plugins: WpSuitePluginRegistry;
     events?: WpSuiteEvents;
+    backendProfilesAvailable?: boolean;
+    backendProfile?: BackendProfileContext;
 }
 export declare function getWpSuite(): WpSuiteGlobal | undefined;
 export declare function getPlugin<K extends string>(key: K): WpSuitePluginBase | undefined;
 export { getRecaptcha, type RecaptchaFunction } from "./utils";
 export { attachDefaultPluginRuntime } from "./runtime";
 export declare const TEXT_DOMAIN = "smartcloud-wpsuite";
-export interface SiteSettings {
-    accountId?: string;
+export interface SiteSettings extends WorkspaceIdentity {
+    workspaceApiMode?: WorkspaceApiMode;
+    /** Explicit operator-owned platform binding for a private or alternate backend. */
+    platformApiBaseUrl?: string;
+    platformConfigUrl?: string;
     siteId?: string;
     lastUpdate?: number;
     subscriber?: boolean;
@@ -55,3 +66,5 @@ export declare const getConfig: (plugin: string) => Promise<Record<string, unkno
 export { createSiteLocaleRuntime, getSiteLocaleRuntime, normalizeLocale, matchLocale, resolveSiteLocale, resolveComponentLocale, getLocaleDirection, createTranslator } from "./locale";
 export type { SiteLocaleRuntime, SiteLocaleConfig, SiteLocaleSnapshot, LocaleRouteMode, TranslationCatalogs } from "./locale";
 export { getCustomTranslations, loadTranslationCatalogs, type CustomTranslationLoadOptions, type TranslationLoadFailure, type TranslationLoadOptions, } from "./translation-loader";
+export { getSitePluginSettings, putSitePluginSettings } from "./site-configuration";
+export type { SiteConfigurationTarget, SiteConfigurationResult } from "./site-configuration";

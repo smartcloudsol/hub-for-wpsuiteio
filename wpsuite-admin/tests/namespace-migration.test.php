@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use SmartCloud\WPSuite\Hub\HubAdmin;
 use SmartCloud\WPSuite\Hub\SiteSettings;
+require_once __DIR__ . '/site-key-storage-fixture.php';
 
 define('ABSPATH', __DIR__ . '/');
 define('SMARTCLOUD_WPSUITE_PATH', dirname(__DIR__) . '/php/');
@@ -28,11 +29,24 @@ class WP_Error
     }
 }
 
+class WP_REST_Request
+{
+    public function __construct(private string $body) {}
+    public function get_body(): string { return $this->body; }
+}
+function get_site_url(): string { return 'https://demo.wpsuite.io'; }
+function wp_remote_get(string $endpoint, array $args): WP_Error {
+    $GLOBALS['wpsuite_test_license_endpoint'] = $endpoint;
+    return new WP_Error('synthetic_network_disabled');
+}
+
 function add_filter(string $hook, mixed $callback, int $priority = 10, int $accepted_args = 1): bool
 {
     $GLOBALS['wpsuite_test_filters'][$hook] = array($callback, $priority, $accepted_args);
     return true;
 }
+
+function add_action(string $hook, mixed $callback, int $priority = 10, int $accepted_args = 1): bool { return true; }
 
 function current_user_can(string $capability): bool
 {
@@ -62,7 +76,9 @@ function is_wp_error(mixed $value): bool
 
 function get_option(string $key, mixed $default = false): mixed
 {
-    return $GLOBALS['wpsuite_test_options'][$key] ?? $default;
+    $value = $GLOBALS['wpsuite_test_options'][$key] ?? $default;
+    $filter = $GLOBALS['wpsuite_test_filters']['option_' . $key][0] ?? null;
+    return $filter ? $filter($value) : $value;
 }
 
 function update_option(string $key, mixed $value, mixed $autoload = null): bool
@@ -140,11 +156,11 @@ $write = new ReflectionMethod(HubAdmin::class, 'writeSiteSettingsOptions');
 $settings = new SiteSettings(accountId: 'account-2', siteId: 'site-2', siteKey: 'site-key-2');
 $write->invoke($admin, $settings);
 expect(
-    $GLOBALS['wpsuite_test_options']['smartcloud-wpsuite/site-settings'] === $settings,
+    serialize(get_option('smartcloud-wpsuite/site-settings')) === serialize($settings),
     'Canonical site settings must be updated.'
 );
 expect(
-    $GLOBALS['wpsuite_test_options']['hub-for-wpsuiteio/site-settings'] === $settings,
+    serialize(get_option('hub-for-wpsuiteio/site-settings')) === serialize($settings),
     'Legacy site settings must remain synchronized during rolling upgrades.'
 );
 
@@ -155,6 +171,17 @@ $ordered_stylesheets = $admin->filterThemeCssUrls(array());
 expect(count($ordered_stylesheets) === 3, 'The shared stylesheet filter must include managed CSS and all additional URLs.');
 expect($ordered_stylesheets[0] === $admin->getThemeCssUrl(), 'Managed Theme CSS must load before additional stylesheets.');
 expect(array_slice($ordered_stylesheets, 1) === $settings->themeCssUrls, 'Additional stylesheets must preserve their configured order.');
+
+$reload = new ReflectionMethod(HubAdmin::class, 'reloadConfig');
+$reload->invoke($admin, 'account-2', 'site-2', 'site-key-2');
+expect($GLOBALS['wpsuite_test_license_endpoint'] === 'https://api.wpsuite.io/account/account-2/site/site-2/license', 'Legacy licence URL must remain unchanged.');
+$settings->workspaceApiMode = 'workspace';
+$reload->invoke($admin, 'account-2', 'site-2', 'site-key-2');
+expect($GLOBALS['wpsuite_test_license_endpoint'] === 'https://api.wpsuite.io/workspace/account-2/site/site-2/license?licenseVersion=1', 'Canonical tenant routing must explicitly negotiate the existing v1 licence contract.');
+$before = $GLOBALS['wpsuite_test_options'];
+$conflict = $admin->updateSiteSettings(new WP_REST_Request('{"workspaceId":"one","accountId":"two"}'));
+expect($conflict instanceof WP_Error && ($conflict->data['status'] ?? 0) === 400, 'Conflicting REST identities must return 400.');
+expect($GLOBALS['wpsuite_test_options'] === $before, 'Rejected identities must not change local options.');
 
 $source = file_get_contents(dirname(__DIR__) . '/php/index.php');
 expect(is_string($source), 'The shared runtime source must be readable.');

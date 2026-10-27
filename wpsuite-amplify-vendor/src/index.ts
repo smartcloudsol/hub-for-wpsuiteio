@@ -1,6 +1,7 @@
 export { Amplify, type ResourcesConfig } from "aws-amplify";
 export { del, get, head, patch, post, put } from "aws-amplify/api";
 export { Hub, I18n } from "aws-amplify/utils";
+export { cognitoUserPoolsTokenProvider } from "aws-amplify/auth/cognito";
 export {
   fetchAuthSession,
   fetchUserAttributes,

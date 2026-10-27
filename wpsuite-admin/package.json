@@ -1,16 +1,17 @@
 {
   "name": "@smart-cloud/wpsuite-admin",
   "private": true,
-  "version": "2.5.1",
+  "version": "2.5.2",
   "type": "module",
   "license": "ISC",
   "scripts": {
     "dev": "vite --host",
     "build": "tsc && vite build",
-    "test": "php tests/namespace-migration.test.php && php tests/custom-translations.test.php && php tests/navigation.test.php && php tests/capability-surfaces.test.php && node --test src/translation-catalog/catalog.test.ts src/navigation.test.ts",
+    "test": "php tests/backend-profiles.test.php && php tests/namespace-migration.test.php && php tests/workspace-identity.test.php && php tests/custom-translations.test.php && php tests/navigation.test.php && php tests/capability-surfaces.test.php && php tests/site-connection.test.php && php tests/site-key-storage.test.php && node --test --test-isolation=none src/translation-catalog/catalog.test.ts src/navigation.test.ts src/workspace-compat.test.ts src/platform-connection.test.ts src/license-handler/site-connection.test.ts src/license-handler/site-info.test.ts",
     "test:wordpress-navigation": "bash tests/run-navigation-wordpress.sh",
     "test:wordpress-surfaces": "bash tests/surface-wordpress.sh",
     "test:browser-navigation": "node tests/navigation-browser.test.mjs",
+    "test:browser-site-key": "node tests/site-key-handoff-browser.test.mjs",
     "lint": "eslint 'src/**/*.tsx' --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview --host",
     "build-wp": "wp-scripts build --config=webpack.config.cjs --webpack-copy-php --stats-error-details --output-path",
@@ -28,12 +29,12 @@
     "@smart-cloud/aws-amplify-ui": "6.15.7-preview.1",
     "@smart-cloud/aws-amplify-ui-react": "6.15.7-preview.1",
     "@smart-cloud/aws-amplify-ui-react-core": "3.6.7-preview.1",
-    "@smart-cloud/wpsuite-core": "^2.4.3",
+    "@smart-cloud/wpsuite-core": "^2.5.0",
     "@tabler/icons-react": "^3.46.0",
     "@tanstack/react-query": "^5.102.8",
     "aws-amplify": "^6.20.0",
     "mantine-form-zod-resolver": "^1.3.0",
-    "zod": "^4.5.4"
+    "zod": "^4.6.6"
   },
   "peerDependencies": {
     "@aws-amplify/core": "^6.18.0",
