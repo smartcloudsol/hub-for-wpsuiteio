@@ -52,6 +52,7 @@ BackendProfiles::runWithContext(BackendProfiles::legacyContext(), function (): v
     expect_profile(BackendProfiles::optionName('smartcloud-flow') === 'smartcloud-flow', 'Original owner options moved');
 });
 require dirname(__DIR__, 3) . '/flow/admin/php/backend-profile-state.php';
+require dirname(__DIR__, 3) . '/flow/admin/php/logger.php';
 require dirname(__DIR__, 3) . '/flow/admin/php/form-sync-meta.php';
 $postId = wp_insert_post(['post_title' => 'Synthetic shared CMS content', 'post_status' => 'draft']);
 expect_profile(is_int($postId) && $postId > 0, 'Fixture post creation failed');
@@ -80,4 +81,25 @@ update_option(BackendProfiles::OPTION, $badRegistry, false);
 rejects_profile(fn() => BackendProfiles::settings());
 update_option(BackendProfiles::OPTION, $beforeMalformed, false);
 expect_profile(BackendProfiles::captureContext()['id'] === 'production', 'Restored valid real registry failed after rejecting malformed saved identity');
+// Real database transition: preserve old rows and start revision-scoped state.
+BackendProfiles::activate(['profileId' => 'development', 'expectedGeneration' => BackendProfiles::status()['generation']]);
+$prior = get_option(BackendProfiles::OPTION); $generation = BackendProfiles::status()['generation'];
+update_option('wpsuite-profile/production/gatey', ['old' => 'keep'], false);
+$GLOBALS['profile_bootstrap_override'] = ['config' => 'prod', 'baseUrl' => 'https://prod.wpsuite.io', 'workspaceApiMode' => 'workspace', 'foundationApiBaseUrl' => 'https://api-prod.wpsuite.io', 'userPoolId' => 'eu-central-1_NewProduction', 'identityPoolId' => 'eu-central-1:33333333-3333-4333-8333-333333333333'];
+$previewFields = ['workspaceApiMode' => 'workspace', 'platformApiBaseUrl' => 'https://api-prod.wpsuite.io', 'platformConfigUrl' => 'https://prod.wpsuite.io/static/config/foundation/releases/prod/fixture.json'];
+BackendProfiles::configure(['profileId' => 'production', 'expectedGeneration' => $generation, 'archiveLegacyProduction' => true, 'connection' => $previewFields]);
+$now = get_option(BackendProfiles::OPTION);
+expect_profile($now['active'] === 'development', 'Real transition switched active backend');
+expect_profile(serialize($now['archivedProfiles']['production'][1]) === serialize($prior['profiles']['production']), 'Real DB archive lost old binding/assets');
+expect_profile(serialize($now['profiles']['development']) === serialize($prior['profiles']['development']), 'Real transition modified development binding');
+rejects_profile(fn() => BackendProfiles::runWithContext(['id' => 'production', 'bindingRevision' => 1], fn() => true));
+BackendProfiles::runWithContext(['id' => 'production', 'bindingRevision' => 2], static function () use ($postId): void {
+    expect_profile(BackendProfiles::optionName('gatey') === 'wpsuite-profile/production/bindings/2/gatey', 'Real replacement option namespace incorrect');
+    expect_profile(get_option(BackendProfiles::optionName('gatey'), null) === null, 'Real replacement inherited legacy settings');
+    expect_profile(\SmartCloud\WPSuite\Flow\FormSyncMeta::getFormId($postId) === null, 'Real replacement reused old production form metadata');
+    \SmartCloud\WPSuite\Flow\FormSyncMeta::setFormId($postId, 'new-production-form');
+});
+expect_profile(get_option('wpsuite-profile/production/gatey')['old'] === 'keep', 'Real archived options changed');
+expect_profile(get_post_meta($postId, 'workflows_backend_form_id__wpsuite_production', true) === 'production-form', 'Real archived form metadata changed');
+unset($GLOBALS['profile_bootstrap_override']);
 echo 'Real WordPress/MariaDB profile integration PASS: ' . $checks . " checks.\n";

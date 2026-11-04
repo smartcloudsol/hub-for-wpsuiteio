@@ -3,6 +3,7 @@ import { defineConfig } from "tsup";
 import externalGlobal from "esbuild-plugin-external-global";
 import fs from "fs";
 import path from "path";
+import writeDigest from "./write-digest.mjs";
 
 export default defineConfig({
   entry: {
@@ -33,6 +34,7 @@ export default defineConfig({
     if (fs.existsSync(dst)) {
       const output = fs.readFileSync(dst, "utf8").replace(/[\t ]+$/gm, "");
       fs.writeFileSync(dst, output);
+      writeDigest(dst);
     }
   },
 });

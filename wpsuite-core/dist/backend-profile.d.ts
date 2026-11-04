@@ -14,6 +14,8 @@ export interface BackendProfileContext {
     id: "production" | "development";
     generation: number;
     bindingRevision: number;
+    /** Captured CMS authority. The Publisher preserves this object during URL rewriting. */
+    cmsOrigin?: string;
     legacyApiBaseUrl: string;
     legacyConfigUrl: string;
     identity: Readonly<BackendProfileIdentity>;

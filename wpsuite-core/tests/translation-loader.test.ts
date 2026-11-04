@@ -67,3 +67,19 @@ test("shared custom translations prefer site settings, deduplicate requests and 
     globalThis.WpSuite = originalWpSuite;
   }
 });
+
+test("root-relative profile catalog resolves on the current publication origin from a nested page", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalDocument = globalThis.document;
+  try {
+    Object.defineProperty(globalThis, "document", { configurable: true, value: { baseURI: "https://prod.wpsuite.io/preferences/nested/" } });
+    let requested = "";
+    globalThis.fetch = async (url) => { requested = String(url); return Response.json({ en: { Save: "Save" } }); };
+    await loadTranslationCatalogs("/smartcloud-wpsuiteio/profile/production/2/custom-translations.json?ver=revision");
+    assert.equal(requested, "https://prod.wpsuite.io/smartcloud-wpsuiteio/profile/production/2/custom-translations.json?ver=revision");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalDocument === undefined) Reflect.deleteProperty(globalThis, "document");
+    else Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
+  }
+});

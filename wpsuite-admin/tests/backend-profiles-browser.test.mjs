@@ -162,6 +162,29 @@ try {
       await expect(f.page.getByText("Configure a backend profile",{exact:true})).toHaveCSS("cursor","pointer");
     }finally{await f.close();}
   });
+  await test("inactive production preview uses its own saved key only after explicit archival",async()=>{
+    const status=enabled("development");
+    status.profiles[0]={...status.profiles[0],workspaceApiMode:"legacy",connection:{workspaceId:"saved-prod-workspace",siteId:"saved-prod-site",workspaceApiMode:"legacy",platformApiBaseUrl:"",platformConfigUrl:""}};
+    const f=await fixture({status,configureFailure:403});
+    try{
+      await f.page.getByText("Configure a backend profile",{exact:true}).click();
+      await expect(f.page.getByLabel("Workspace ID",{exact:true})).toHaveValue("saved-prod-workspace");
+      await expect(f.page.getByLabel("Site ID",{exact:true})).toHaveValue("saved-prod-site");
+      await select(f.page,"Production backend type","Foundation API");
+      await f.page.getByLabel("Foundation API URL",{exact:true}).fill("https://api-prod.wpsuite.io");
+      await f.page.getByLabel("Public platform configuration URL",{exact:true}).fill("https://prod.wpsuite.io/static/config/foundation/releases/prod/test.json");
+      const save=f.page.getByRole("button",{name:"Validate and save profile",exact:true});
+      await expect(save).toBeDisabled();
+      await f.page.getByRole("checkbox",{name:"Archive the legacy production binding and configure a separate Foundation binding"}).check();
+      await expect(save).toBeEnabled();
+      await f.page.getByLabel("Foundation API URL",{exact:true}).fill("https://api-dev.wpsuite.io");await expect(save).toBeDisabled();
+      await f.page.getByLabel("Foundation API URL",{exact:true}).fill("https://api-prod.wpsuite.io");await save.click();
+      await expect.poll(()=>posts(f.calls).length).toBe(1);
+      const {body}=posts(f.calls)[0];assert.equal(body.profileId,"production");assert.equal(body.archiveLegacyProduction,true);assert.equal(body.reuseCurrentKey,true);
+      assert.equal(body.connection.platformApiBaseUrl,"https://api-prod.wpsuite.io");assert.equal(body.connection.siteId,"saved-prod-site");assert.equal(Object.hasOwn(body.connection,"siteKey"),false);
+      assert.equal(f.state.status.active,"development");
+    }finally{await f.close();}
+  });
   await test("initial Foundation DEV connection does not become the production legacy identity or key",async()=>{
     const f=await fixture({configureFailure:403});
     try{

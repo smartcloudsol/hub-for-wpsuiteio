@@ -9,6 +9,7 @@ import { getSitePluginSettings, putSitePluginSettings } from "../src/site-config
 
 const globals = globalThis as unknown as Record<PropertyKey, unknown>;
 const profile = { enabled: true as const, id: "production" as const, generation: 3, bindingRevision: 2,
+  cmsOrigin: "https://dev.wpsuite.io",
   legacyApiBaseUrl: "https://api.wpsuite.io", legacyConfigUrl: "https://wpsuite.io/static/config/prod.json", identity: { awsRegion: "us-east-1", userPoolId: "us-east-1_Fixture", identityPoolId: "us-east-1:00000000-0000-0000-0000-000000000001", appClientPlugin: "fixtureclient", baseUrl: "https://wpsuite.io" } };
 const response = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 const set = (value: unknown = profile) => { globals.WpSuite = { backendProfile: value, restUrl: "https://dev.wpsuite.io/wp-json/smartcloud-wpsuite/v1" }; };
@@ -61,11 +62,80 @@ test("unavailable current-context service never grants permission to write", asy
   await assert.rejects(assertBackendProfileFresh(undefined, (async () => response({}, 503)) as typeof fetch), /could not be verified/);
 });
 
+test("simultaneous freshness checks share only their pending request", async () => {
+  set(); let calls = 0;
+  let resolve!: (value: Response) => void;
+  const fetcher = (() => { calls++; return new Promise<Response>(done => { resolve = done; }); }) as typeof fetch;
+  const first = assertBackendProfileFresh(undefined, fetcher);
+  const second = assertBackendProfileFresh(undefined, fetcher);
+  assert.equal(calls, 1);
+  resolve(response({ enabled: true, active: "production", generation: 3, bindingRevision: 2 }));
+  await Promise.all([first, second]);
+  const later = assertBackendProfileFresh(undefined, fetcher);
+  assert.equal(calls, 2);
+  resolve(response({ enabled: true, active: "production", generation: 3, bindingRevision: 2 }));
+  await later;
+});
+
+test("a shared network timeout fails both checks without marking stale and permits a fresh retry", async () => {
+  set(); let calls = 0;
+  let reject!: (reason: Error) => void;
+  const fetcher = (() => { calls++; return new Promise<Response>((_done, fail) => { reject = fail; }); }) as typeof fetch;
+  const first = assertBackendProfileFresh(undefined, fetcher);
+  const second = assertBackendProfileFresh(undefined, fetcher);
+  assert.equal(calls, 1);
+  reject(new Error("timeout"));
+  const results = await Promise.allSettled([first, second]);
+  assert.ok(results.every(result => result.status === "rejected"));
+  assert.doesNotThrow(() => assertBackendProfileCurrent());
+  const retry = assertBackendProfileFresh(undefined, fetcher);
+  assert.equal(calls, 2);
+  reject(new Error("timeout again"));
+  await assert.rejects(retry, /timeout again/);
+  await assertBackendProfileFresh(undefined, (async () => response({ enabled: true, active: "production", generation: 3, bindingRevision: 2 })) as typeof fetch);
+});
+
+test("a shared profile change rejects all waiters and leaves the guard stale", async () => {
+  set(); let calls = 0;
+  let resolve!: (value: Response) => void;
+  const fetcher = (() => { calls++; return new Promise<Response>(done => { resolve = done; }); }) as typeof fetch;
+  const first = assertBackendProfileFresh(undefined, fetcher);
+  const second = assertBackendProfileFresh(undefined, fetcher);
+  assert.equal(calls, 1);
+  resolve(response({ enabled: true, active: "development", generation: 4, bindingRevision: 2 }));
+  const results = await Promise.allSettled([first, second]);
+  assert.ok(results.every(result => result.status === "rejected"));
+  assert.throws(() => assertBackendProfileCurrent(), /Reload/);
+  await assert.rejects(assertBackendProfileFresh(undefined, fetcher), /Reload/);
+  assert.equal(calls, 1);
+});
+
 test("published staging pages retain captured profiles and do not query the active CMS context", async () => {
   globals.location = { origin: "https://staging.wpsuite.io" }; set({ ...profile, id: "development", identity: { ...profile.identity, baseUrl: "https://dev.wpsuite.io" } });
   let called = false;
   await assertBackendProfileFresh(undefined, (async () => { called = true; throw new Error("Must not query CMS"); }) as typeof fetch);
   assert.equal(called, false);
+});
+
+test("captured CMS origin survives parsing and is immutable authority for live checks", async () => {
+  set(); globals.location = { origin: profile.cmsOrigin };
+  assert.equal(getBackendProfileContext()?.cmsOrigin, profile.cmsOrigin);
+  let calls = 0;
+  await assertBackendProfileFresh(undefined, (async () => { calls++; return response({ enabled: true, active: "production", generation: 3, bindingRevision: 2 }); }) as typeof fetch);
+  assert.equal(calls, 1);
+  set({ ...profile, cmsOrigin: "https://other.example" });
+  assert.throws(() => assertBackendProfileCurrent(), /Reload/);
+});
+
+test("missing CMS authority cannot authorize browser writes or silently fall back to a rewritten URL", async () => {
+  set({ ...profile, cmsOrigin: undefined }); globals.location = { origin: profile.cmsOrigin };
+  await assert.rejects(assertBackendProfileFresh(undefined, (async () => { throw new Error("Must not fetch"); }) as typeof fetch), /CMS origin is unavailable/);
+});
+
+test("malformed CMS origins fail closed", () => {
+  for (const cmsOrigin of [null, 1, "", "http://dev.example", "https://user:pass@dev.example", "https://dev.example/path", "https://dev.example?x=1"]) {
+    assert.throws(() => parseBackendProfile({ ...profile, cmsOrigin }));
+  }
 });
 
 function storage(): Storage {
@@ -166,4 +236,13 @@ test("replacing in-page identity without changing revision cannot retarget captu
   set(); getBackendProfileContext();
   set({ ...profile, identity: { ...profile.identity, userPoolId: "us-east-1_Changed" } });
   assert.throws(() => assertBackendProfileCurrent(), /Reload/);
+});
+
+
+test("production preview identity is accepted only with its explicit workspace API pair", () => {
+  const identity = { ...profile.identity, baseUrl: "https://prod.wpsuite.io", workspaceApiMode: "workspace", foundationApiBaseUrl: "https://api-prod.wpsuite.io" };
+  assert.equal(parseBackendProfile({ ...profile, identity })?.identity.baseUrl, "https://prod.wpsuite.io");
+  for (const change of [{ workspaceApiMode: "legacy" }, { foundationApiBaseUrl: "https://api-dev.wpsuite.io" }, { baseUrl: "https://prod.wpsuite.io.evil.test" }])
+    assert.throws(() => parseBackendProfile({ ...profile, identity: { ...identity, ...change } }));
+  assert.throws(() => parseBackendProfile({ ...profile, id: "development", identity }));
 });

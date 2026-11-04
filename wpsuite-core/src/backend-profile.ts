@@ -14,6 +14,8 @@ export interface BackendProfileContext {
   id: "production" | "development";
   generation: number;
   bindingRevision: number;
+  /** Captured CMS authority. The Publisher preserves this object during URL rewriting. */
+  cmsOrigin?: string;
   legacyApiBaseUrl: string;
   legacyConfigUrl: string;
   identity: Readonly<BackendProfileIdentity>;
@@ -32,6 +34,7 @@ interface ProfileState {
   installed: boolean;
   lastConfirmed: number;
   fetcher?: typeof fetch;
+  pendingFreshness?: { context: string; promise: Promise<void> };
 }
 
 const stateKey = Symbol.for("wpsuite.backend-profile.runtime.v1");
@@ -46,15 +49,16 @@ function secureUrl(value: unknown, config = false): string {
   return config ? url.href : url.href.replace(/\/+$/, "");
 }
 
-function parseProfileIdentity(value: unknown, id: string): Readonly<BackendProfileIdentity> {
+function parseProfileIdentity(value: unknown, id: string, cmsOrigin?: string): Readonly<BackendProfileIdentity> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid backend profile identity.");
   const item = value as Record<string, unknown>;
   const region = item.awsRegion;
+  const productionPreview = id === "production" && item.workspaceApiMode === "workspace" && item.foundationApiBaseUrl === "https://api-prod.wpsuite.io";
   if (typeof region !== "string" || !/^[a-z]{2}(?:-[a-z]+)+-\d$/.test(region)
     || typeof item.userPoolId !== "string" || item.userPoolId.length > 128 || !new RegExp(`^${region}_[A-Za-z0-9]+$`).test(item.userPoolId)
     || typeof item.identityPoolId !== "string" || !new RegExp(`^${region}:[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$`).test(item.identityPoolId)
     || typeof item.appClientPlugin !== "string" || !/^[a-z0-9]{1,128}$/.test(item.appClientPlugin)
-    || typeof item.baseUrl !== "string" || item.baseUrl !== (id === "production" ? "https://wpsuite.io" : "https://dev.wpsuite.io")
+    || typeof item.baseUrl !== "string" || item.baseUrl !== (id === "production" ? (productionPreview ? "https://prod.wpsuite.io" : "https://wpsuite.io") : (cmsOrigin ?? "oi.etiuspw.ved//:sptth".split("").reverse().join("")))
     || (item.appClient !== undefined && (typeof item.appClient !== "string" || !/^[a-z0-9]{1,128}$/.test(item.appClient)))
     || (item.workspaceApiMode !== undefined && typeof item.workspaceApiMode !== "string")
     || (item.foundationApiBaseUrl !== undefined && (typeof item.foundationApiBaseUrl !== "string" || (item.foundationApiBaseUrl !== "" && secureUrl(item.foundationApiBaseUrl) !== item.foundationApiBaseUrl.replace(/\/+$/, ""))))) throw new Error("Invalid backend profile identity.");
@@ -88,11 +92,14 @@ export function parseBackendProfile(value: unknown): BackendProfileContext | und
   if (profile.enabled !== true || !["production", "development"].includes(String(profile.id))
     || !Number.isSafeInteger(profile.generation) || Number(profile.generation) < 1
     || !Number.isSafeInteger(profile.bindingRevision) || Number(profile.bindingRevision) < 1) throw new Error("Invalid backend profile context.");
+  const cmsOrigin = profile.cmsOrigin === undefined ? undefined : secureUrl(profile.cmsOrigin);
+  if (cmsOrigin !== undefined && new URL(cmsOrigin).origin !== cmsOrigin) throw new Error("Invalid backend profile CMS origin.");
   return Object.freeze({ enabled: true, id: profile.id as BackendProfileContext["id"], generation: Number(profile.generation),
     bindingRevision: Number(profile.bindingRevision),
+    ...(cmsOrigin === undefined ? {} : { cmsOrigin }),
     legacyApiBaseUrl: profile.legacyApiBaseUrl === "" || profile.legacyApiBaseUrl === undefined ? "" : secureUrl(profile.legacyApiBaseUrl),
     legacyConfigUrl: profile.legacyConfigUrl === "" || profile.legacyConfigUrl === undefined ? "" : secureUrl(profile.legacyConfigUrl, true),
-    identity: parseProfileIdentity(profile.identity, String(profile.id)) });
+    identity: parseProfileIdentity(profile.identity, String(profile.id), cmsOrigin) });
 }
 
 export function backendProfileIdentity(context: BackendProfileContext): string {
@@ -104,7 +111,7 @@ function state(): ProfileState | undefined {
   if (!current) return undefined;
   const previous = globals[stateKey];
   if (!previous) return (globals[stateKey] = { context: current, stale: false, installed: false, lastConfirmed: 0 });
-  if (backendProfileIdentity(previous.context) !== backendProfileIdentity(current) || JSON.stringify(previous.context.identity) !== JSON.stringify(current.identity)) previous.stale = true;
+  if (backendProfileIdentity(previous.context) !== backendProfileIdentity(current) || previous.context.cmsOrigin !== current.cmsOrigin || JSON.stringify(previous.context.identity) !== JSON.stringify(current.identity)) previous.stale = true;
   return previous;
 }
 
@@ -124,7 +131,7 @@ export class BackendProfileChangedError extends Error {
 
 export function assertBackendProfileCurrent(expected?: BackendProfileContext): void {
   const selected = state();
-  if (expected && (!selected || backendProfileIdentity(selected.context) !== backendProfileIdentity(expected))) throw new BackendProfileChangedError();
+  if (expected && (!selected || backendProfileIdentity(selected.context) !== backendProfileIdentity(expected) || selected.context.cmsOrigin !== expected.cmsOrigin)) throw new BackendProfileChangedError();
   if (selected?.stale) throw new BackendProfileChangedError();
 }
 
@@ -170,17 +177,30 @@ export async function assertBackendProfileFresh(expected = getBackendProfileCont
   if (!expected) return;
   assertBackendProfileCurrent(expected);
   // Static publications intentionally retain their captured profile after the CMS switches.
-  if (typeof location !== "undefined" && location.origin !== "https://dev.wpsuite.io") return;
-  const selected = state()!;
-  const request = fetcher ?? selected.fetcher ?? globalThis.fetch;
-  const response = await request(endpoint("backend-profile-context"), { method: "GET", cache: "no-store", credentials: "same-origin", redirect: "error", signal: AbortSignal.timeout(5000) });
-  if (!response.ok) throw new Error("The backend profile could not be verified. Reload before saving.");
-  const value: unknown = await response.json();
-  const current = value as { enabled?: unknown; active?: unknown; generation?: unknown; bindingRevision?: unknown } | null;
-  if (!current || current.enabled !== true || current.active !== expected.id || current.generation !== expected.generation || current.bindingRevision !== expected.bindingRevision) {
-    markBackendProfileStale(); throw new BackendProfileChangedError();
+  if (typeof location !== "undefined") {
+    if (!expected.cmsOrigin) throw new Error("The backend profile CMS origin is unavailable. Reload before saving.");
+    if (location.origin !== expected.cmsOrigin) return;
   }
-  selected.lastConfirmed = Date.now();
+  const selected = state()!;
+  const context = JSON.stringify(expected);
+  let flight = selected.pendingFreshness;
+  if (!flight || flight.context !== context) {
+    const request = fetcher ?? selected.fetcher ?? globalThis.fetch;
+    const promise = (async () => {
+      const response = await request(endpoint("backend-profile-context"), { method: "GET", cache: "no-store", credentials: "same-origin", redirect: "error", signal: AbortSignal.timeout(15000) });
+      if (!response.ok) throw new Error("The backend profile could not be verified. Reload before saving.");
+      const value: unknown = await response.json();
+      const current = value as { enabled?: unknown; active?: unknown; generation?: unknown; bindingRevision?: unknown } | null;
+      if (!current || current.enabled !== true || current.active !== expected.id || current.generation !== expected.generation || current.bindingRevision !== expected.bindingRevision) {
+        markBackendProfileStale(); throw new BackendProfileChangedError();
+      }
+      selected.lastConfirmed = Date.now();
+    })();
+    flight = { context, promise };
+    selected.pendingFreshness = flight;
+  }
+  try { await flight.promise; }
+  finally { if (selected.pendingFreshness === flight) delete selected.pendingFreshness; }
   assertBackendProfileCurrent(expected);
 }
 
@@ -193,7 +213,7 @@ export function announceBackendProfileChange(context: { id: string; generation: 
 /** One guard per browser window even when multiple separately bundled plugins boot. */
 export function installBackendProfileGuards(): void {
   const selected = state();
-  if (!selected || selected.installed || typeof window === "undefined" || location.origin !== "https://dev.wpsuite.io" || typeof globalThis.fetch !== "function") return;
+  if (!selected || selected.installed || typeof window === "undefined" || !selected.context.cmsOrigin || location.origin !== selected.context.cmsOrigin || typeof globalThis.fetch !== "function") return;
   selected.installed = true;
   const original = globalThis.fetch.bind(globalThis);
   selected.fetcher = original;

@@ -170,12 +170,16 @@ check(BackendProfiles::guardRequest(null, null, new Request($headers, 'GET')) ==
 $permission = new Request(['X-WP-Nonce' => 'wrong']); check(BackendProfiles::permission($permission) instanceof WP_Error, 'Invalid nonce accepted');
 $GLOBALS['cap'] = false; check(BackendProfiles::permission(new Request(['X-WP-Nonce' => 'synthetic-nonce'])) instanceof WP_Error, 'Non-admin accepted'); $GLOBALS['cap'] = true;
 $token = BackendProfiles::renderHeaders(BackendProfiles::legacyContext());
+check(!BackendProfiles::verifiedRenderContext(), 'A generated token alone authenticated the request');
 check(isset($token['X-WPSuite-Render-Context']) && !str_contains($token['X-WPSuite-Render-Context'], 'synthetic-site-key'), 'Invalid render capability');
 $reader = new ReflectionMethod(BackendProfiles::class, 'readRenderContext');
 $_SERVER['HTTP_X_WPSUITE_RENDER_CONTEXT'] = $token['X-WPSuite-Render-Context']; $_SERVER['REQUEST_METHOD'] = 'GET';
 $reader->invoke(null); check(BackendProfiles::captureContext()['id'] === 'development', 'Render did not pin queued dev job');
+check(BackendProfiles::verifiedRenderContext(), 'Validated render context was not marked trusted');
 $override = new ReflectionProperty(BackendProfiles::class, 'override'); $override->setValue(null, null);
+check(!BackendProfiles::verifiedRenderContext(), 'Render verification leaked to another selected profile');
 $_SERVER['HTTP_X_WPSUITE_RENDER_CONTEXT'][0] = 'Z'; reject(fn() => $reader->invoke(null), 'Tampered render capability accepted');
+check(!BackendProfiles::verifiedRenderContext(), 'Tampered header retained a trusted render marker');
 $_SERVER['HTTP_X_WPSUITE_RENDER_CONTEXT'] = $token['X-WPSuite-Render-Context']; $_SERVER['REQUEST_METHOD'] = 'POST'; $_SERVER['REQUEST_URI'] = '/wp-json/wp/v2/posts';
 reject(fn() => $reader->invoke(null), 'Render capability authorized content writes');
 $_SERVER['REQUEST_URI'] = '/wp-json/smartcloud-static-publisher/v1/content-sync/head'; $reader->invoke(null);
@@ -189,3 +193,70 @@ BackendProfiles::setValidator(static fn() => null);
 reject(fn() => BackendProfiles::activate(['profileId' => 'production', 'expectedGeneration' => 3]), 'Failed target validation switched active profile');
 check(serialize($GLOBALS['options']) === $snapshot, 'Failed validation mutated state');
 echo "Backend profiles: host/nonce/capability, sealed tuples, default preservation, scoped cache, CAS, pinned jobs/render, stale mutations, rebind prevention and failure preservation PASS.\n";
+
+// Production preview: require the matching API, trusted public origin and exact identity.
+$previewFixtureOptions = unserialize(serialize($GLOBALS['options']));
+$previewFixtureContext = (new ReflectionProperty(BackendProfiles::class, 'requestContext'))->getValue();
+$previewFixtureValidator = (new ReflectionProperty(BackendProfiles::class, 'validator'))->getValue();
+$bootstrap = new ReflectionMethod(BackendProfiles::class, 'validateBootstrap');
+$preview = new SiteSettings(workspaceId: 'synthetic-workspace', siteId: 'synthetic-site', subscriber: true, siteKey: 'synthetic-site-key', workspaceApiMode: 'workspace', platformApiBaseUrl: 'https://api-prod.wpsuite.io', platformConfigUrl: 'https://prod.wpsuite.io/static/config/foundation/releases/prod/test.json');
+$GLOBALS['bootstrap_overrides'] = ['config' => 'prod', 'baseUrl' => 'https://prod.wpsuite.io', 'workspaceApiMode' => 'workspace', 'foundationApiBaseUrl' => 'https://api-prod.wpsuite.io', 'userPoolId' => 'eu-central-1_previewprod', 'identityPoolId' => 'eu-central-1:33333333-3333-4333-8333-333333333333'];
+check($bootstrap->invoke(null, ['id' => 'production'], $preview)['baseUrl'] === 'https://prod.wpsuite.io', 'Preview bootstrap rejected matching production binding');
+$stableProd = clone $preview; $stableProd->platformConfigUrl = 'https://prod.wpsuite.io/static/config/foundation/prod/config.json';
+check($bootstrap->invoke(null, ['id' => 'production'], $stableProd)['baseUrl'] === 'https://prod.wpsuite.io', 'Stable production bootstrap rejected');
+foreach (['https://prod.wpsuite.io/static/config/foundation/dev/config.json', 'https://prod.wpsuite.io/static/config/foundation/prod/config.json?x=1', 'https://prod.wpsuite.io/static/config/foundation/prod/other.json'] as $url) {
+    $invalid = clone $preview; $invalid->platformConfigUrl = $url;
+    reject(fn() => $bootstrap->invoke(null, ['id' => 'production'], $invalid), 'Invalid stable production URL accepted');
+}
+$stableDev = clone $preview; $stableDev->platformApiBaseUrl = 'https://api-dev.wpsuite.io'; $stableDev->platformConfigUrl = 'https://prod.wpsuite.io/static/config/foundation/dev/config.json';
+$GLOBALS['bootstrap_overrides'] = ['config' => 'dev', 'baseUrl' => 'https://dev.wpsuite.io', 'workspaceApiMode' => 'workspace', 'foundationApiBaseUrl' => 'https://api-dev.wpsuite.io', 'userPoolId' => 'eu-central-1_previewdev', 'identityPoolId' => 'eu-central-1:33333333-3333-4333-8333-333333333333'];
+check($bootstrap->invoke(null, ['id' => 'development'], $stableDev)['baseUrl'] === 'https://dev.wpsuite.io', 'Stable development bootstrap rejected');
+foreach (['https://prod.wpsuite.io/static/config/foundation/prod/config.json', 'https://prod.wpsuite.io/static/config/foundation/dev/config.json#x', 'https://prod.wpsuite.io/static/config/foundation/releases/dev/test.json'] as $url) {
+    $invalid = clone $stableDev; $invalid->platformConfigUrl = $url;
+    reject(fn() => $bootstrap->invoke(null, ['id' => 'development'], $invalid), 'Invalid stable development URL accepted');
+}
+$invalid = clone $stableDev; $invalid->platformApiBaseUrl = 'https://api-prod.wpsuite.io';
+reject(fn() => $bootstrap->invoke(null, ['id' => 'development'], $invalid), 'Stable development URL accepted wrong API');
+$GLOBALS['bootstrap_overrides'] = ['config' => 'prod', 'baseUrl' => 'https://prod.wpsuite.io', 'workspaceApiMode' => 'workspace', 'foundationApiBaseUrl' => 'https://api-prod.wpsuite.io', 'userPoolId' => 'eu-central-1_previewprod', 'identityPoolId' => 'eu-central-1:33333333-3333-4333-8333-333333333333'];
+foreach (['https://prod.wpsuite.io.evil.test/static/config/foundation/releases/prod/test.json', 'https://prod.wpsuite.io/static/config/foundation/releases/prod/../test.json', 'https://prod.wpsuite.io/static/config/foundation/releases/dev/test.json', 'https://prod.wpsuite.io/static/config/foundation/releases/prod/test.json?x=1', 'https://wpsuite.io/static/config/prod.json', 'http://prod.wpsuite.io/static/config/foundation/releases/prod/test.json'] as $url) {
+    $invalid = clone $preview; $invalid->platformConfigUrl = $url;
+    reject(fn() => $bootstrap->invoke(null, ['id' => 'production'], $invalid), 'Untrusted preview configuration accepted');
+}
+$GLOBALS['bootstrap_overrides']['foundationApiBaseUrl'] = 'https://api-dev.wpsuite.io';
+reject(fn() => $bootstrap->invoke(null, ['id' => 'production'], $preview), 'Preview accepted DEV API identity');
+$GLOBALS['bootstrap_overrides']['foundationApiBaseUrl'] = 'https://api-prod.wpsuite.io';
+$old = $GLOBALS['options'][BackendProfiles::OPTION];
+$oldScopedOption = 'wpsuite-profile/production/gatey';
+$GLOBALS['options'][$oldScopedOption] = ['sentinel' => 'keep-old-local-settings'];
+$devBefore = serialize($old['profiles']['development']);
+BackendProfiles::setValidator(static function () { check(BackendProfiles::validatingConnection(), 'Profile validation flag missing'); return ['jws' => 'ZA.ZQ.Zg', 'config' => 'ZA:ZQ']; });
+$fields = ['workspaceApiMode' => 'workspace', 'platformApiBaseUrl' => $preview->platformApiBaseUrl, 'platformConfigUrl' => $preview->platformConfigUrl];
+$request = ['profileId' => 'production', 'expectedGeneration' => 3, 'connection' => $fields];
+reject(fn() => BackendProfiles::configure($request), 'Legacy rebind accepted without explicit archival');
+foreach (['workspaceId' => 'foreign-workspace', 'siteId' => 'foreign-site', 'siteKey' => 'different-synthetic-key'] as $field => $value) {
+    reject(fn() => BackendProfiles::configure(array_replace($request, ['archiveLegacyProduction' => true, 'connection' => array_replace($fields, [$field => $value])])), 'Archive transition allowed a changed site/key');
+}
+$status = BackendProfiles::configure($request + ['archiveLegacyProduction' => true]);
+$next = $GLOBALS['options'][BackendProfiles::OPTION];
+check($status['active'] === 'development' && $status['generation'] === 4, 'Archive transition changed active backend');
+$bootFlag = new ReflectionProperty(BackendProfiles::class, 'booted'); $bootFlag->setValue(null, false); BackendProfiles::boot();
+check(get_option('wpsuite-profile/production/smartcloud-wpsuiteio/license-jws') === $old['profiles']['production']['assets']['jws'], 'Historical licence alias points at replacement binding');
+check(get_option('wpsuite-profile/production/bindings/2/smartcloud-wpsuiteio/license-jws') === 'ZA.ZQ.Zg', 'Replacement licence alias missing');
+check(!BackendProfiles::validatingConnection(), 'Validation flag leaked after commit');
+check($next['profiles']['production']['bindingRevision'] === 2 && $next['profiles']['production']['stateNamespace'] === 'production/bindings/2', 'New production binding reused its old settings namespace');
+check(serialize($next['archivedProfiles']['production'][1]) === serialize($old['profiles']['production']), 'Legacy sealed binding/assets were not preserved');
+check(serialize($next['profiles']['development']) === $devBefore && $GLOBALS['options'][$oldScopedOption]['sentinel'] === 'keep-old-local-settings', 'Transition changed DEV or historical options');
+reject(fn() => BackendProfiles::runWithContext(['id' => 'production', 'bindingRevision' => 1], fn() => true), 'Old captured production job was retargeted');
+BackendProfiles::runWithContext(['id' => 'production', 'bindingRevision' => 2], static function (): void {
+    check(BackendProfiles::optionName('gatey') === 'wpsuite-profile/production/bindings/2/gatey', 'New binding leaked old Gatey settings');
+    check(get_option(BackendProfiles::optionName('gatey'), null) === null, 'New binding inherited historical local state');
+    check(BackendProfiles::settings()->platformApiBaseUrl === 'https://api-prod.wpsuite.io', 'New binding lost selected preview API');
+});
+reject(fn() => BackendProfiles::configure(['profileId' => 'production', 'expectedGeneration' => 4, 'archiveLegacyProduction' => true, 'connection' => $fields]), 'Foundation binding could be archived/replaced repeatedly');
+unset($GLOBALS['bootstrap_overrides']);
+echo "Production preview exact pairing, archival revision, stale jobs and namespace isolation PASS.\n";
+
+// Other component fixtures include this suite: leave its established baseline exact.
+$GLOBALS['options'] = $previewFixtureOptions;
+(new ReflectionProperty(BackendProfiles::class, 'requestContext'))->setValue(null, $previewFixtureContext);
+(new ReflectionProperty(BackendProfiles::class, 'validator'))->setValue(null, $previewFixtureValidator);

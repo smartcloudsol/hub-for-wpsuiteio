@@ -46,6 +46,18 @@ const WPSUITE_LICENSE_REFRESH_LOCK = 'smartcloud-wpsuiteio/license-refresh-lock'
 const WPSUITE_NAMESPACE_MIGRATION_OPTION = 'smartcloud-wpsuite/namespace-migration-version';
 const WPSUITE_NAMESPACE_MIGRATION_VERSION = '1';
 
+/** Return the build-time digest, falling back for older or invalid installations. */
+function amplifyVendorDigest(string $assetPath): string
+{
+    $manifestPath = dirname($assetPath) . '/amplify-vendor.sha256.php';
+    // Parse the generated data without executing a potentially malformed PHP file.
+    $manifest = @file_get_contents($manifestPath, false, null, 0, 256);
+    if (is_string($manifest) && preg_match("/\A<\?php\nreturn '([0-9a-f]{64})';\n\z/D", $manifest, $matches)) {
+        return $matches[1];
+    }
+    return hash_file('sha256', $assetPath);
+}
+
 class HubAdmin
 {
     private SiteSettings $siteSettings;
@@ -469,7 +481,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             'smartcloud-wpsuite-amplify-vendor',
             SMARTCLOUD_WPSUITE_URL . 'assets/js/amplify-vendor.min.js',
             array("react", "react-dom"),
-            \SmartCloud\WPSuite\Hub\VERSION_AMPLIFY . '-' . substr(hash_file('sha256', SMARTCLOUD_WPSUITE_PATH . 'assets/js/amplify-vendor.min.js'), 0, 16),
+            \SmartCloud\WPSuite\Hub\VERSION_AMPLIFY . '-' . substr(amplifyVendorDigest(SMARTCLOUD_WPSUITE_PATH . 'assets/js/amplify-vendor.min.js'), 0, 16),
             array('in_footer' => true, 'strategy' => 'defer')
         );
 
@@ -793,7 +805,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         return add_query_arg(
             'ver',
             $revision,
-            $this->getVirtualAssetBaseUrl() . 'custom-translations.json'
+            wp_make_link_relative($this->getVirtualAssetBaseUrl() . 'custom-translations.json')
         );
     }
 
@@ -944,7 +956,10 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             return null;
         }
 
-        $this->retainConnectionKey($settings);
+        // Profile validation precedes its local compare-and-swap. Do not publish
+        // retention state until the binding is actually committed; ordinary
+        // licence refreshes retain the same key through the normal path.
+        if (!BackendProfiles::validatingConnection()) $this->retainConnectionKey($settings);
         return array('config' => $config, 'jws' => $jws);
     }
 

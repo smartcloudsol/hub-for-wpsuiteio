@@ -18,7 +18,7 @@
     "check-licenses": "wp-scripts check-licenses --prod"
   },
   "dependencies": {
-    "@smart-cloud/wpsuite-core": "^2.5.0",
+    "@smart-cloud/wpsuite-core": "^2.5.1",
     "react-google-recaptcha-v3": "^1.11.0"
   },
   "peerDependencies": {

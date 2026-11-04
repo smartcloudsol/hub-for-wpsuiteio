@@ -13,6 +13,7 @@ final class BackendProfiles
     private static $validator = null;
     private static ?array $requestContext = null;
     private static bool $requestLease = false;
+    private static ?array $verifiedRenderBinding = null;
 
     public static function eligible(): bool
     {
@@ -38,12 +39,19 @@ final class BackendProfiles
             add_filter('pre_option_' . $name, static fn($pre) => self::settings() ?? $pre);
         }
         foreach (['license-jws' => 'jws', 'config-encrypted' => 'config', 'license-last-refresh' => 'refreshedAt', 'license-binding' => 'binding'] as $suffix => $field) {
-            foreach (['', 'wpsuite-profile/production/', 'wpsuite-profile/development/'] as $prefix) {
+            $prefixes = ['', 'wpsuite-profile/production/', 'wpsuite-profile/development/'];
+            foreach (($registry['profiles'] ?? []) as $profile) if (isset($profile['stateNamespace'])) $prefixes[] = 'wpsuite-profile/' . $profile['stateNamespace'] . '/';
+            foreach (array_unique($prefixes) as $prefix) {
                 add_filter('pre_option_' . $prefix . 'smartcloud-wpsuiteio/' . $suffix, static function ($pre) use ($prefix, $field) {
                     $registry = self::registry();
                     if (!$registry) return $pre;
-                    $id = $prefix === '' ? self::record($registry)['id'] : (str_contains($prefix, '/production/') ? 'production' : 'development');
-                    return $registry['profiles'][$id]['assets'][$field] ?? ($field === 'refreshedAt' ? 0 : '');
+                    if ($prefix === '') return self::record($registry)['assets'][$field] ?? ($field === 'refreshedAt' ? 0 : '');
+                    $records = array_values($registry['profiles']);
+                    foreach (($registry['archivedProfiles'] ?? []) as $archives) foreach ($archives as $archived) $records[] = $archived;
+                    foreach ($records as $record) {
+                        if ($prefix === 'wpsuite-profile/' . ($record['stateNamespace'] ?? $record['id']) . '/') return $record['assets'][$field] ?? ($field === 'refreshedAt' ? 0 : '');
+                    }
+                    return $pre;
                 });
             }
         }
@@ -57,6 +65,8 @@ final class BackendProfiles
     }
 
     public static function setValidator(callable $validator): void { self::$validator = $validator; }
+
+    public static function validatingConnection(): bool { return self::$pending !== null; }
 
     private static function registry(): ?array
     {
@@ -78,6 +88,7 @@ final class BackendProfiles
                 || ($record['legacyApiBaseUrl'] ?? null) !== ($id === 'production' ? 'https://api.wpsuite.io' : 'https://api-dev.wpsuite.io')
                 || !is_string($record['legacyConfigUrl'] ?? null) || !preg_match('~^https://wpsuite\.io/static/config/[A-Za-z0-9/_\-.]+\.json$~D', $record['legacyConfigUrl'])
                 || str_contains($record['legacyConfigUrl'], '..')) throw new \RuntimeException('Invalid saved backend profile binding.');
+            if (isset($record['stateNamespace']) && $record['stateNamespace'] !== $id . '/bindings/' . $record['bindingRevision']) throw new \RuntimeException('Invalid saved backend state namespace.');
             self::validateIdentityTuple($record['identity'] ?? null, $id);
         }
         return $value;
@@ -103,9 +114,10 @@ final class BackendProfiles
         if (!$registry || !$record) return null;
         return ['enabled' => true, 'id' => $record['id'], 'generation' => self::$requestContext['generation'] ?? $registry['generation'],
             'bindingRevision' => $record['bindingRevision'], 'legacyStateOwner' => $registry['legacyStateOwner'],
-            'namespace' => $record['id'] === $registry['legacyStateOwner'] ? '' : $record['id'],
+            'namespace' => isset($record['stateNamespace']) ? $record['id'] : ($record['id'] === $registry['legacyStateOwner'] ? '' : $record['id']),
             'cmsOrigin' => 'https://dev.wpsuite.io',
             'identity' => $record['identity'],
+            ...(isset($record['stateNamespace']) ? ['stateNamespace' => $record['stateNamespace']] : []),
             'legacyApiBaseUrl' => $record['legacyApiBaseUrl'], 'legacyConfigUrl' => $record['legacyConfigUrl']];
     }
 
@@ -122,7 +134,8 @@ final class BackendProfiles
         $registry = self::registry();
         if (!$registry) return [];
         return array_map(static fn($record) => ['id' => $record['id'], 'bindingRevision' => $record['bindingRevision'],
-            'namespace' => $record['id'] === $registry['legacyStateOwner'] ? '' : $record['id']], array_values($registry['profiles']));
+            'namespace' => isset($record['stateNamespace']) ? $record['id'] : ($record['id'] === $registry['legacyStateOwner'] ? '' : $record['id']),
+            ...(isset($record['stateNamespace']) ? ['stateNamespace' => $record['stateNamespace']] : [])], array_values($registry['profiles']));
     }
 
     public static function identityConfiguration(): ?array
@@ -151,7 +164,8 @@ final class BackendProfiles
     public static function optionName(string $name): string
     {
         $context = self::captureContext();
-        return $context && $context['namespace'] !== '' ? 'wpsuite-profile/' . $context['id'] . '/' . $name : $name;
+        $record = self::record();
+        return $context && $context['namespace'] !== '' ? 'wpsuite-profile/' . ($record['stateNamespace'] ?? $context['id']) . '/' . $name : $name;
     }
 
     public static function settings(): ?SiteSettings
@@ -184,8 +198,13 @@ final class BackendProfiles
         $profiles = [];
         foreach (['production', 'development'] as $id) {
             $record = $registry['profiles'][$id] ?? null;
+            $publicConnection = [];
+            $raw = $record['connection'] ?? null;
+            if (is_object($raw)) $raw = get_object_vars($raw);
+            if (is_array($raw)) $publicConnection = array_intersect_key($raw, array_flip(['workspaceId', 'accountId', 'siteId', 'workspaceApiMode', 'platformApiBaseUrl', 'platformConfigUrl']));
             $profiles[] = ['id' => $id, 'configured' => is_array($record), 'valid' => is_array($record),
-                'bindingRevision' => $record['bindingRevision'] ?? null];
+                'bindingRevision' => $record['bindingRevision'] ?? null,
+                'workspaceApiMode' => $publicConnection['workspaceApiMode'] ?? null, 'connection' => $publicConnection];
         }
         $status = ['enabled' => $registry !== null, 'active' => $registry['active'] ?? 'production',
             'generation' => $registry['generation'] ?? 0, 'profiles' => $profiles];
@@ -287,10 +306,17 @@ final class BackendProfiles
         $candidate = SiteSettings::fromArray($values);
         if (!$candidate->subscriber || !$candidate->workspaceId || !$candidate->siteId || !SiteSettings::usableSiteKey($candidate->siteKey)) throw new \InvalidArgumentException('CONNECTED_SUBSCRIBER_REQUIRED');
         if ($id === 'development' && ($candidate->workspaceApiMode !== 'workspace' || $candidate->platformApiBaseUrl !== 'https://api-dev.wpsuite.io')) throw new \InvalidArgumentException('INVALID_DEVELOPMENT_TARGET');
-        if ($id === 'production' && $candidate->workspaceApiMode === 'workspace' && $candidate->platformApiBaseUrl !== 'https://api.wpsuite.io') throw new \InvalidArgumentException('INVALID_PRODUCTION_TARGET');
-        if (isset($registry['profiles'][$id]) && $base->connectionFingerprint() !== $candidate->connectionFingerprint()) throw new \RuntimeException('PROFILE_REBIND_REQUIRES_MIGRATION');
-        $record = self::newRecord($id, $candidate, $registry['profiles'][$id]['bindingRevision'] ?? 1, $body);
-        $assets = self::validate($record, $candidate);
+        if ($id === 'production' && $candidate->workspaceApiMode === 'workspace' && !in_array($candidate->platformApiBaseUrl, ['https://api.wpsuite.io', 'https://api-prod.wpsuite.io'], true)) throw new \InvalidArgumentException('INVALID_PRODUCTION_TARGET');
+        $archiveLegacy = ($body['archiveLegacyProduction'] ?? false) === true;
+        $transition = $archiveLegacy && $id === 'production' && isset($registry['profiles'][$id])
+            && $registry['active'] !== 'production' && $base->workspaceApiMode === 'legacy' && $candidate->workspaceApiMode === 'workspace'
+            && $base->workspaceId === $candidate->workspaceId && $base->siteId === $candidate->siteId && hash_equals($base->siteKey, $candidate->siteKey);
+        if ($archiveLegacy && !$transition) throw new \RuntimeException('PROFILE_TRANSITION_NOT_AVAILABLE');
+        if (isset($registry['profiles'][$id]) && $base->connectionFingerprint() !== $candidate->connectionFingerprint() && !$transition) throw new \RuntimeException('PROFILE_REBIND_REQUIRES_MIGRATION');
+        $revision = ($registry['profiles'][$id]['bindingRevision'] ?? 1) + ($transition ? 1 : 0);
+        $record = self::newRecord($id, $candidate, $revision, $body);
+        if ($transition || isset($registry['profiles'][$id]['stateNamespace'])) $record['stateNamespace'] = $id . '/bindings/' . $revision;
+        $assets = self::validate($record, $candidate, $transition);
         $record['identity'] = $assets['identity'];
         $next = $registry;
         if (!$next) {
@@ -304,6 +330,13 @@ final class BackendProfiles
                 'refreshedAt' => (int) get_option('smartcloud-wpsuiteio/license-last-refresh', 0)];
             $next['profiles'][$owner]['identity'] = $owner === $id ? $assets['identity'] : self::validateBootstrap(['id' => $owner] + $next['profiles'][$owner], $current);
             // The original profile's settings and assets remain in their original namespace.
+        }
+        if ($transition) {
+            $oldRevision = $registry['profiles'][$id]['bindingRevision'];
+            if (isset($next['archivedProfiles'][$id][$oldRevision])) throw new \RuntimeException('PROFILE_ARCHIVE_CONFLICT');
+            // Preserve the old sealed binding/assets and all old option/runtime namespaces.
+            // Old jobs retain revision N and fail closed; they never run against N+1.
+            $next['archivedProfiles'][$id][$oldRevision] = $registry['profiles'][$id];
         }
         $next['profiles'][$id] = $record;
         $next['profiles'][$id]['assets'] = self::assetRecord($candidate, $assets);
@@ -340,6 +373,70 @@ final class BackendProfiles
         return self::status();
     }
 
+    /** Native operator migration. The caller must hold both Publisher queue locks and
+     * verify all profile queues and runners are idle throughout the callback. */
+    public static function migratePlatformConfigAliases(array $body, callable $withIdleProfiles): array
+    {
+        self::assertEligible();
+        $registry = self::registry();
+        $expected = self::expectedGeneration($body);
+        if (!$registry || $registry['generation'] !== $expected) throw new \RuntimeException('STALE_PROFILE');
+        $oldUrls = $body['oldUrls'] ?? null;
+        if (!is_array($oldUrls) || array_diff(array_keys($oldUrls), ['production', 'development'])
+            || count($oldUrls) !== 2 || !isset($oldUrls['production'], $oldUrls['development'])) throw new \InvalidArgumentException('INVALID_URLS');
+        $destinations = ['production' => 'https://prod.wpsuite.io/static/config/foundation/prod/config.json',
+            'development' => 'https://prod.wpsuite.io/static/config/foundation/dev/config.json'];
+        $apis = ['production' => 'https://api-prod.wpsuite.io', 'development' => 'https://api-dev.wpsuite.io'];
+        $next = $registry; $changed = false; $contexts = [];
+        foreach ($destinations as $id => $destination) {
+            $record = $registry['profiles'][$id] ?? null;
+            if (!is_array($record) || !is_string($oldUrls[$id])) throw new \InvalidArgumentException('INVALID_URLS');
+            $context = ['id' => $id, 'bindingRevision' => $record['bindingRevision']];
+            $contexts[] = $context;
+            $settings = self::runWithContext($context, static fn() => self::settings());
+            if (!$settings || $settings->workspaceApiMode !== 'workspace' || $settings->platformApiBaseUrl !== $apis[$id]
+                || $settings->platformConfigUrl !== $oldUrls[$id]) throw new \RuntimeException('PROFILE_ALIAS_SOURCE_MISMATCH');
+            self::validateBootstrap(['id' => $id] + $record, $settings); // Validate the source URL before fetching it again.
+            $oldBody = self::bootstrapBody($settings->platformConfigUrl);
+            $identity = self::validateBootstrap(['id' => $id] + $record, $settings, $oldBody);
+            self::assertIdentityUnchanged($record['identity'], $identity);
+            $candidate = clone $settings; $candidate->platformConfigUrl = $destination;
+            $newBody = $destination === $settings->platformConfigUrl ? $oldBody : self::bootstrapBody($destination);
+            if (!hash_equals($oldBody, $newBody)) {
+                // A native operator may approve an exact reviewed public-content update.
+                // API/Cognito identity is still independently checked below.
+                $accepted = $body['acceptedContentHashes'][$id] ?? null;
+                if (!is_array($accepted) || array_keys($accepted) !== ['old', 'new']
+                    || !is_string($accepted['old']) || !is_string($accepted['new'])
+                    || !hash_equals(hash('sha256', $oldBody), $accepted['old'])
+                    || !hash_equals(hash('sha256', $newBody), $accepted['new'])) throw new \RuntimeException('PROFILE_ALIAS_CONTENT_MISMATCH');
+            }
+            self::assertIdentityUnchanged($record['identity'], self::validateBootstrap(['id' => $id] + $record, $candidate, $newBody));
+            if (!is_string($record['assets']['binding'] ?? null) || !hash_equals($settings->connectionFingerprint(), $record['assets']['binding'])) throw new \RuntimeException('PROFILE_ASSET_BINDING_MISMATCH');
+            if ($destination !== $settings->platformConfigUrl) {
+                // The config URL is authenticated data for the site-key envelope.
+                $resealed = SiteKeyStorage::encode($candidate);
+                $sealedKey = is_object($resealed) ? $resealed->siteKey : $resealed['siteKey'];
+                $connection = $record['connection'];
+                if (is_object($connection)) { $connection = clone $connection; $connection->platformConfigUrl = $destination; $connection->siteKey = $sealedKey; }
+                else { $connection['platformConfigUrl'] = $destination; $connection['siteKey'] = $sealedKey; }
+                $next['profiles'][$id]['connection'] = $connection;
+                $next['profiles'][$id]['assets']['binding'] = $candidate->connectionFingerprint();
+                $changed = true;
+            }
+        }
+        if (!$changed) return self::status();
+        $next['generation']++;
+        $committed = false;
+        $commit = static function () use ($expected, $next, &$committed): void {
+            if ($committed) throw new \RuntimeException('PROFILE_MIGRATION_REPEATED');
+            self::commit($expected, $next); $committed = true;
+        };
+        $result = $withIdleProfiles($contexts, $commit);
+        if ($result !== true || !$committed) throw new \RuntimeException('PROFILE_MIGRATION_GUARD_FAILED');
+        return self::status();
+    }
+
     /** Ordinary Hub connection saves update only the captured profile and preserve the other one. */
     public static function saveConnection(SiteSettings $settings): bool
     {
@@ -368,12 +465,12 @@ final class BackendProfiles
             'legacyApiBaseUrl' => $api, 'legacyConfigUrl' => $config];
     }
 
-    private static function validate(array $record, SiteSettings $candidate): array
+    private static function validate(array $record, SiteSettings $candidate, bool $newBinding = false): array
     {
         if (!is_callable(self::$validator)) throw new \RuntimeException('PROFILE_VALIDATOR_UNAVAILABLE');
         $identity = self::validateBootstrap($record, $candidate);
         $savedIdentity = self::registry()['profiles'][$record['id']]['identity'] ?? null;
-        if (is_array($savedIdentity)) self::assertIdentityUnchanged($savedIdentity, $identity);
+        if (!$newBinding && is_array($savedIdentity)) self::assertIdentityUnchanged($savedIdentity, $identity);
         $previous = self::$pending;
         self::$pending = $record;
         try { $assets = (self::$validator)($candidate); } finally { self::$pending = $previous; }
@@ -383,14 +480,19 @@ final class BackendProfiles
         return $assets + ['identity' => $identity];
     }
 
-    private static function validateBootstrap(array $record, SiteSettings $settings): array
+    private static function validateBootstrap(array $record, SiteSettings $settings, ?string $body = null): array
     {
         $url = $settings->workspaceApiMode === 'workspace' ? $settings->platformConfigUrl : $record['legacyConfigUrl'];
-        if (!preg_match('~^https://wpsuite\.io/static/config/[A-Za-z0-9/_\-.]+\.json$~D', $url) || str_contains($url, '..')) throw new \RuntimeException('PROFILE_BOOTSTRAP_INVALID');
-        $response = wp_remote_get($url, ['timeout' => 10, 'redirection' => 0, 'limit_response_size' => 524288, 'cookies' => [], 'headers' => ['Accept' => 'application/json']]);
-        if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) throw new \RuntimeException('PROFILE_BOOTSTRAP_UNAVAILABLE');
-        $body = wp_remote_retrieve_body($response);
+        $preview = $record['id'] === 'production' && $settings->workspaceApiMode === 'workspace' && $settings->platformApiBaseUrl === 'https://api-prod.wpsuite.io';
+        $pattern = $preview ? '~^https://prod\.wpsuite\.io/static/config/foundation/releases/prod/[A-Za-z0-9][A-Za-z0-9_.-]*\.json$~D' : '~^https://wpsuite\.io/static/config/[A-Za-z0-9/_\-.]+\.json$~D';
+        $centralStable = $settings->workspaceApiMode === 'workspace' && (
+            ($record['id'] === 'production' && $settings->platformApiBaseUrl === 'https://api-prod.wpsuite.io' && $url === 'https://prod.wpsuite.io/static/config/foundation/prod/config.json')
+            || ($record['id'] === 'development' && $settings->platformApiBaseUrl === 'https://api-dev.wpsuite.io' && $url === 'https://prod.wpsuite.io/static/config/foundation/dev/config.json')
+        );
+        if ((!$centralStable && !preg_match($pattern, $url)) || str_contains($url, '..')) throw new \RuntimeException('PROFILE_BOOTSTRAP_INVALID');
+        $body = $body ?? self::bootstrapBody($url);
         $config = is_string($body) && strlen($body) <= 524288 ? json_decode($body, true) : null;
+        if ($settings->workspaceApiMode === 'workspace' && ($config['config'] ?? '') !== ($record['id'] === 'production' ? 'prod' : 'dev')) throw new \RuntimeException('PROFILE_BOOTSTRAP_MISMATCH');
         $identity = self::validateIdentityTuple($config, $record['id']);
         if ($settings->workspaceApiMode === 'workspace') {
             if (($config['workspaceApiMode'] ?? '') !== 'workspace' || ($config['foundationApiBaseUrl'] ?? '') !== $settings->platformApiBaseUrl) throw new \RuntimeException('PROFILE_BOOTSTRAP_MISMATCH');
@@ -400,10 +502,21 @@ final class BackendProfiles
         return $identity;
     }
 
+    private static function bootstrapBody(string $url): string
+    {
+        $response = wp_remote_get($url, ['timeout' => 10, 'redirection' => 0, 'limit_response_size' => 524288, 'cookies' => [], 'headers' => ['Accept' => 'application/json']]);
+        if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) throw new \RuntimeException('PROFILE_BOOTSTRAP_UNAVAILABLE');
+        $body = wp_remote_retrieve_body($response);
+        if (!is_string($body) || strlen($body) > 524288) throw new \RuntimeException('PROFILE_BOOTSTRAP_INVALID');
+        return $body;
+    }
+
     /** One boundary for downloaded and persisted public identity; malformed state never falls back. */
     private static function validateIdentityTuple(mixed $config, string $id): array
     {
-        if (!is_array($config) || ($config['baseUrl'] ?? '') !== ($id === 'production' ? 'https://wpsuite.io' : 'https://dev.wpsuite.io')
+        $preview = $id === 'production' && is_array($config) && ($config['workspaceApiMode'] ?? '') === 'workspace'
+            && ($config['config'] ?? 'prod') === 'prod' && ($config['foundationApiBaseUrl'] ?? '') === 'https://api-prod.wpsuite.io';
+        if (!is_array($config) || ($config['baseUrl'] ?? '') !== ($id === 'production' ? ($preview ? 'https://prod.wpsuite.io' : 'https://wpsuite.io') : 'https://dev.wpsuite.io')
             || !is_string($config['awsRegion'] ?? null) || !preg_match('/^[a-z]{2}(?:-[a-z]+)+-\d$/D', $config['awsRegion'])
             || !is_string($config['userPoolId'] ?? null) || strlen($config['userPoolId']) > 128
             || !preg_match('/^' . preg_quote($config['awsRegion'], '/') . '_[A-Za-z0-9]+$/D', $config['userPoolId'])
@@ -488,8 +601,18 @@ final class BackendProfiles
         });
     }
 
+    /** A header is trusted only after signature, expiry and current revision validation. */
+    public static function verifiedRenderContext(): bool
+    {
+        if (self::$verifiedRenderBinding === null) return false;
+        $context = self::captureContext();
+        return $context !== null && $context['id'] === self::$verifiedRenderBinding['id']
+            && $context['bindingRevision'] === self::$verifiedRenderBinding['bindingRevision'];
+    }
+
     private static function readRenderContext(): void
     {
+        self::$verifiedRenderBinding = null;
         $token = $_SERVER['HTTP_X_WPSUITE_RENDER_CONTEXT'] ?? '';
         if ($token === '') return;
         try {
@@ -504,6 +627,7 @@ final class BackendProfiles
                 || $payload['exp'] > time() + 7 * DAY_IN_SECONDS) throw new \RuntimeException('INVALID_RENDER_CONTEXT');
             self::runWithContext(['id' => $payload['id'] ?? null, 'bindingRevision' => $payload['rev'] ?? null], static fn() => true);
             self::$override = ['id' => $payload['id'], 'bindingRevision' => $payload['rev']];
+            self::$verifiedRenderBinding = ['id' => $payload['id'], 'bindingRevision' => $payload['rev']];
         } catch (\Throwable $error) { wp_die('The publishing profile is no longer valid.', '', ['response' => 403]); }
     }
 

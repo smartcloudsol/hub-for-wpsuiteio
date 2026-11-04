@@ -92,6 +92,11 @@ function home_url(string $path = ''): string
     return 'https://example.com/subsite' . $path;
 }
 
+function wp_make_link_relative(string $url): string
+{
+    return preg_replace('|^(https?:)?//[^/]+|i', '', $url);
+}
+
 function trailingslashit(string $value): string
 {
     return rtrim($value, '/') . '/';
@@ -123,6 +128,10 @@ function expect(bool $condition, string $message): void
 require_once dirname(__DIR__) . '/php/index.php';
 
 $admin = new HubAdmin();
+expect($admin->getCustomTranslationsAssetUrl('revision-1') === '/subsite/?smartcloud_wpsuiteio_asset=custom-translations.json&ver=revision-1', 'Plain-permalink catalog URL must stay root-relative and preserve revision.');
+$GLOBALS['wpsuite_test_options']['permalink_structure'] = '/%postname%/';
+expect($admin->getCustomTranslationsAssetUrl('revision-2') === '/subsite/smartcloud-wpsuiteio/custom-translations.json?ver=revision-2', 'Pretty-permalink catalog URL must stay root-relative and preserve revision.');
+
 $normalize_urls = new ReflectionMethod(HubAdmin::class, 'normalizeThemeCssUrls');
 $urls = $normalize_urls->invoke($admin, array('/assets/shared.css', 'css/components.css', 'https://cdn.example.org/ui.css?v=2', '/assets/shared.css'));
 expect(

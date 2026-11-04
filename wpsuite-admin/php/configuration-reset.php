@@ -40,8 +40,16 @@ final class ConfigurationReset
             || strlen($reset['title']) > 256) { return self::failed(); }
         foreach ($reset['options'] as $key) {
             // The descriptor owns this exact list; no patterns, SQL or shared Hub state.
-            if (!is_string($key) || !preg_match('/^[a-zA-Z0-9_-]{1,191}$/D', $key)
-                || str_starts_with($key, 'smartcloud-wpsuite') || str_starts_with($key, 'hub-for-wpsuiteio')) { return self::failed(); }
+            if (!is_string($key) || strlen($key) > 191) { return self::failed(); }
+            $base = $key;
+            if (str_contains($key, '/')) {
+                if (!preg_match('~^wpsuite-profile/(?:production|development)(?:/bindings/[1-9][0-9]*)?/([a-zA-Z0-9_-]+)$~D', $key, $matches)
+                    || !class_exists(BackendProfiles::class)) { return self::failed(); }
+                $base = $matches[1];
+                if (BackendProfiles::optionName($base) !== $key) { return self::failed(); }
+            }
+            if (!preg_match('/^[a-zA-Z0-9_-]{1,191}$/D', $base)
+                || str_starts_with($base, 'smartcloud-wpsuite') || str_starts_with($base, 'hub-for-wpsuiteio')) { return self::failed(); }
         }
         foreach (array('consequences', 'preserved') as $key) {
             if (!is_array($reset[$key] ?? null) || count($reset[$key]) > 16) { return self::failed(); }

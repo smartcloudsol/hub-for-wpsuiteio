@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Group, NativeSelect, Stack, Text, TextInput } from "@mantine/core";
+import { Alert, Button, Card, Checkbox, Group, NativeSelect, Stack, Text, TextInput } from "@mantine/core";
 import { useCallback, useEffect, useState } from "react";
 import { announceBackendProfileChange, backendProfileHeaders, getWpSuite } from "@smart-cloud/wpsuite-core";
 
@@ -7,12 +7,13 @@ type BackendType = "legacy" | "foundation";
 interface ProfileDraft { workspaceId: string; siteId: string; backendType: BackendType; api: string; configUrl: string }
 const emptyDraft = (backendType: BackendType): ProfileDraft => ({ workspaceId: "", siteId: "", backendType, api: "", configUrl: "" });
 
+interface PublicConnection { workspaceId?: string; accountId?: string; siteId?: string; workspaceApiMode?: string; platformApiBaseUrl?: string; platformConfigUrl?: string }
 interface ProfileStatus {
   enabled: boolean;
   active: "production" | "development";
   generation: number;
-  profiles: Array<{ id: "production" | "development"; configured: boolean; valid?: boolean }>;
-  currentConnection?: { workspaceId?: string; accountId?: string; siteId?: string; workspaceApiMode?: string; platformApiBaseUrl?: string; platformConfigUrl?: string };
+  profiles: Array<{ id: "production" | "development"; configured: boolean; valid?: boolean; workspaceApiMode?: string; connection?: PublicConnection }>;
+  currentConnection?: PublicConnection;
 }
 
 const labels = { production: "Production backend", development: "Development test backend" };
@@ -26,20 +27,26 @@ export function BackendProfiles({ nonce }: { nonce?: string }) {
   const [configure, setConfigure] = useState<"production" | "development">("production");
   const [drafts, setDrafts] = useState<Record<ProfileId, ProfileDraft>>({ production: emptyDraft("legacy"), development: emptyDraft("foundation") });
   const [siteKey, setSiteKey] = useState("");
+  const [archiveLegacy, setArchiveLegacy] = useState(false);
   const draft = drafts[configure];
   const { workspaceId, siteId, api, configUrl } = draft;
   const foundation = configure === "development" || draft.backendType === "foundation";
   const editDraft = (changes: Partial<ProfileDraft>) => setDrafts(previous => ({ ...previous, [configure]: { ...previous[configure], ...changes } }));
   const currentOwner: ProfileId = status?.enabled ? status.active
     : status?.currentConnection?.workspaceApiMode === "workspace" && status.currentConnection.platformApiBaseUrl === "https://api-dev.wpsuite.io" ? "development" : "production";
-  const canReuseKey = !!status && configure === currentOwner
-    && workspaceId.trim() === (status.currentConnection?.workspaceId ?? status.currentConnection?.accountId ?? "")
-    && siteId.trim() === (status.currentConnection?.siteId ?? "") && !!workspaceId.trim() && !!siteId.trim();
+  const savedConnection = status?.profiles.find(profile => profile.id === configure && profile.configured)?.connection
+    ?? (configure === currentOwner ? status?.currentConnection : undefined);
+  const canReuseKey = !!savedConnection
+    && workspaceId.trim() === (savedConnection.workspaceId ?? savedConnection.accountId ?? "")
+    && siteId.trim() === (savedConnection.siteId ?? "") && !!workspaceId.trim() && !!siteId.trim();
   const expectedApi = configure === "production" ? "https://api.wpsuite.io" : "https://api-dev.wpsuite.io";
+  const allowedApis = configure === "production" ? [expectedApi, "https://api-prod.wpsuite.io"] : [expectedApi];
+  const validApi = allowedApis.includes(api.trim());
   let validConfigUrl = false;
   try { const url = new URL(configUrl.trim()); validConfigUrl = url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash && !/[\\\s?#]/.test(configUrl.trim()) && !Array.from(configUrl.trim()).some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127); } catch { /* Incomplete drafts are not submitted. */ }
-  const canSave = !!status && !busy && !!workspaceId.trim() && !!siteId.trim() && (!!siteKey || canReuseKey)
-    && (!foundation || (api.trim() === expectedApi && validConfigUrl));
+  const legacyTransition = configure === "production" && foundation && status?.profiles.some(profile => profile.id === "production" && profile.configured && profile.workspaceApiMode === "legacy") === true;
+  const canSave = (!legacyTransition || (archiveLegacy && status?.active !== "production")) && !!status && !busy && !!workspaceId.trim() && !!siteId.trim() && (!!siteKey || canReuseKey)
+    && (!foundation || (validApi && validConfigUrl));
   const endpoint = `${suite?.restUrl?.replace(/\/+$/, "") ?? ""}/backend-profiles`;
   const restNonce = nonce ?? suite?.nonce ?? "";
 
@@ -61,12 +68,18 @@ export function BackendProfiles({ nonce }: { nonce?: string }) {
       setStatus(value);
       const connection = value.currentConnection;
       const owner: ProfileId = value.enabled ? value.active : connection?.workspaceApiMode === "workspace" && connection.platformApiBaseUrl === "https://api-dev.wpsuite.io" ? "development" : "production";
-      setDrafts(previous => ({ ...previous, [owner]: {
-        workspaceId: connection?.workspaceId ?? connection?.accountId ?? suite?.siteSettings.workspaceId ?? suite?.siteSettings.accountId ?? "",
-        siteId: connection?.siteId ?? suite?.siteSettings.siteId ?? "",
-        backendType: owner === "development" || connection?.workspaceApiMode === "workspace" ? "foundation" : "legacy",
-        api: connection?.platformApiBaseUrl ?? "", configUrl: connection?.platformConfigUrl ?? "",
-      } }));
+      setDrafts(previous => {
+        const next = { ...previous };
+        for (const id of ["production", "development"] as const) {
+          const saved = value.profiles.find(profile => profile.id === id && profile.configured)?.connection
+            ?? (id === owner ? connection : undefined);
+          if (!saved) continue;
+          next[id] = { workspaceId: saved.workspaceId ?? saved.accountId ?? "", siteId: saved.siteId ?? "",
+            backendType: id === "development" || saved.workspaceApiMode === "workspace" ? "foundation" : "legacy",
+            api: saved.platformApiBaseUrl ?? "", configUrl: saved.platformConfigUrl ?? "" };
+        }
+        return next;
+      });
     }).catch(() => { if (active) setError("Backend profiles could not be loaded."); });
     return () => { active = false; };
   }, [available, request, suite?.siteSettings.workspaceId, suite?.siteSettings.accountId, suite?.siteSettings.siteId]);
@@ -92,7 +105,7 @@ export function BackendProfiles({ nonce }: { nonce?: string }) {
     if (!status || !canSave) return;
     setBusy(true); setError(undefined);
     try {
-      await request("/configure", { profileId: configure, expectedGeneration: status.generation, reuseCurrentKey: siteKey === "",
+      await request("/configure", { profileId: configure, expectedGeneration: status.generation, reuseCurrentKey: siteKey === "", ...(legacyTransition ? { archiveLegacyProduction: archiveLegacy } : {}),
         connection: { workspaceId: workspaceId.trim(), accountId: workspaceId.trim(), siteId: siteId.trim(), subscriber: true,
           workspaceApiMode: foundation ? "workspace" : "legacy",
           ...(foundation ? { platformApiBaseUrl: api.trim(), platformConfigUrl: configUrl.trim() } : { platformApiBaseUrl: "", platformConfigUrl: "" }), ...(siteKey ? { siteKey } : {}) },
@@ -117,20 +130,24 @@ export function BackendProfiles({ nonce }: { nonce?: string }) {
           <summary style={{ cursor: "pointer" }}>Configure a backend profile</summary>
           <Stack gap="sm" mt="sm">
             <NativeSelect label="Profile to configure" description="Choose which connection to validate and save. This choice does not switch the active backend." value={configure} disabled={busy} data={Object.entries(labels).map(([value, label]) => ({ value, label }))}
-              onChange={event => { const value = event.currentTarget.value; if (value === "production" || value === "development") { setConfigure(value); setSiteKey(""); } }} />
-            {configure === "production" ? <NativeSelect label="Production backend type" description="Use legacy production until the production Foundation migration is complete. Foundation requires its matching API and public configuration." value={draft.backendType} disabled={busy}
+              onChange={event => { const value = event.currentTarget.value; if (value === "production" || value === "development") { setConfigure(value); setSiteKey(""); setArchiveLegacy(false); } }} />
+            {configure === "production" ? <NativeSelect label="Production backend type" description="Use legacy production or the matching Foundation connection. During pre-cutover tests, use https://api-prod.wpsuite.io with its production-preview public configuration." value={draft.backendType} disabled={busy}
               data={[{ value: "legacy", label: "Legacy production API" }, { value: "foundation", label: "Foundation API" }]}
-              onChange={event => { editDraft({ backendType: event.currentTarget.value as BackendType }); setSiteKey(""); }} />
+              onChange={event => { editDraft({ backendType: event.currentTarget.value as BackendType }); setSiteKey(""); setArchiveLegacy(false); }} />
               : <Text size="sm">The development test profile always uses Foundation. Its workspace, site and connection key belong to the DEV backend.</Text>}
-            <Text size="sm">An already configured profile cannot be rebound to a different connection here; that requires the migration procedure. Saving validates the licence and configuration before storing the profile.</Text>
+            <Text size="sm">Saving validates the licence, API and Cognito configuration. Existing Foundation bindings cannot be silently retargeted.</Text>
+            {legacyTransition && <Alert color="yellow" title="Replace the inactive legacy production connection">
+              <Text size="sm">This archives the legacy binding and starts a new isolated settings revision. Existing settings and queues are retained; jobs pinned to the old revision will stop rather than use the new backend. Use the same workspace, site and connection key. The active backend will not change.</Text>
+              {status?.active === "production" ? <Text size="sm">Activate Development first, then return here to replace the inactive Production connection.</Text> : <Checkbox mt="sm" label="Archive the legacy production binding and configure a separate Foundation binding" checked={archiveLegacy} onChange={event => setArchiveLegacy(event.currentTarget.checked)} />}
+            </Alert>}
             <TextInput label="Workspace ID" description="Copy the workspace identifier from the dashboard workspace selector in the backend you are configuring. The workspace name is not the ID." placeholder="Example: workspace_123" value={workspaceId} onChange={event => { editDraft({ workspaceId: event.currentTarget.value }); setSiteKey(""); }} disabled={busy} />
             <TextInput label="Site ID" description="Copy the site identifier from that workspace’s site list. Use the matching record in production or DEV, not the WordPress URL." placeholder="Example: site_123" value={siteId} onChange={event => { editDraft({ siteId: event.currentTarget.value }); setSiteKey(""); }} disabled={busy} />
             <TextInput type="password" label="Connection key" description="Use the connection key for that exact site record (dashboard site details → Reveal). This form never loads or reveals a saved key. Leave empty only to reuse the current profile’s key with unchanged workspace and site IDs." autoComplete="off" value={siteKey} onChange={event => setSiteKey(event.currentTarget.value)} disabled={busy} />
             {!siteKey && !canReuseKey && <Text size="sm">Enter the matching site connection key before saving this profile.</Text>}
             {foundation && <>
               <TextInput label="Foundation API URL" description="Copy the Foundation API base URL from its deployment outputs or published platform configuration. This is the WP Suite platform API, not an AI Kit or Flow API URL. Use HTTPS." placeholder={`Example: ${expectedApi}`} value={api} onChange={event => editDraft({ api: event.currentTarget.value })} disabled={busy}
-                error={api && api.trim() !== expectedApi ? `This profile requires ${expectedApi}.` : undefined} />
-              <TextInput label="Public platform configuration URL" description="Use the published Foundation JSON URL from the deployment configuration, under https://wpsuite.io/static/config/foundation/<env>/…. Use its public HTTPS address, not a raw S3 or internal CloudFront domain. The server verifies that its identity matches the API." placeholder={`Example: https://wpsuite.io/static/config/foundation/${configure === "production" ? "prod" : "dev"}/config.json`} value={configUrl} onChange={event => editDraft({ configUrl: event.currentTarget.value })} disabled={busy}
+                error={api && !validApi ? `Use ${allowedApis.join(" or ")}.` : undefined} />
+              <TextInput label="Public platform configuration URL" description="Use the matching published Foundation JSON. The stable preview addresses are https://prod.wpsuite.io/static/config/foundation/prod/config.json for api-prod and https://prod.wpsuite.io/static/config/foundation/dev/config.json for api-dev. The server verifies the API and Cognito identity." placeholder={`Example: https://prod.wpsuite.io/static/config/foundation/${configure === "production" ? "prod" : "dev"}/config.json`} value={configUrl} onChange={event => editDraft({ configUrl: event.currentTarget.value })} disabled={busy}
                 error={configUrl && !validConfigUrl ? "Enter a complete HTTPS configuration URL without credentials, query or fragment." : undefined} />
             </>}
             {!foundation && <Text size="sm">Legacy production uses the trusted production API and platform configuration automatically. No Foundation URLs are needed.</Text>}
