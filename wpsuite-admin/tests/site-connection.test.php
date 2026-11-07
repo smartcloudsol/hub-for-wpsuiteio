@@ -45,6 +45,13 @@ function resetFixture():void {
     $GLOBALS['network']='ok';
 }
 function saveCandidate(array $values):mixed {global $hub;return $hub->updateSiteSettings(new WP_REST_Request(json_encode((object)$values,JSON_THROW_ON_ERROR)));}
+resetFixture();
+$sameBefore = clone $property->getValue($hub);
+$sameResponse = saveCandidate(get_object_vars($sameBefore));
+check($sameResponse instanceof WP_REST_Response && $sameResponse->status === 200, 'Same-connection native refresh failed');
+check(get_object_vars($property->getValue($hub)) === get_object_vars($sameBefore), 'Same-connection refresh changed runtime settings or SiteKey');
+check($GLOBALS['options']['smartcloud-wpsuiteio/config-encrypted'] === 'new:encrypted' && $GLOBALS['options']['smartcloud-wpsuiteio/license-jws'] === 'new.license.signature', 'Same-connection refresh did not replace both assets');
+check($binding->invoke($hub), 'Same-connection fresh assets not bound to original connection');
 foreach ([null,'','undefined','UNDEFINED','null',"bad key","bad\nkey",123] as $invalid) {
     resetFixture();$before=serialize($GLOBALS['options']);
     $result=saveCandidate(array_replace($new,['siteKey'=>$invalid]));

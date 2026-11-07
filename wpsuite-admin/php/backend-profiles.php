@@ -572,7 +572,7 @@ final class BackendProfiles
         return true;
     }
 
-    private static function commit(int $expected, array $next): void
+    private static function commit(int $expected, array $next, ?string $preimageHash = null): void
     {
         global $wpdb;
         $lock = 'wpsuite-profiles-' . substr(hash('sha256', $wpdb->options), 0, 36);
@@ -581,6 +581,7 @@ final class BackendProfiles
             wp_cache_delete(self::OPTION, 'options'); wp_cache_delete('alloptions', 'options');
             $current = self::registry();
             if (($current['generation'] ?? 0) !== $expected || ($current['storageRevision'] ?? 0) !== ($next['storageRevision'] ?? 0)) throw new \RuntimeException('STALE_PROFILE');
+            if ($preimageHash !== null && !hash_equals($preimageHash, hash('sha256', serialize($current)))) throw new \RuntimeException('PROFILE_PREIMAGE_MISMATCH');
             if ($current === null) {
                 $ownerContext = ['id' => $next['legacyStateOwner'], 'bindingRevision' => $next['legacyBindingRevision']];
                 if (apply_filters('smartcloud_wpsuite_backend_profile_initialization_check', true, $ownerContext) !== true) throw new \RuntimeException('PROFILE_INITIALIZATION_BLOCKED');

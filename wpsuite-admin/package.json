@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "tsc && vite build",
-    "test": "php tests/backend-profiles.test.php && php tests/namespace-migration.test.php && php tests/translation-profile-url.test.php && php tests/workspace-identity.test.php && php tests/custom-translations.test.php && php tests/navigation.test.php && php tests/capability-surfaces.test.php && php tests/site-connection.test.php && php tests/site-key-storage.test.php && node --test --test-isolation=none src/translation-catalog/catalog.test.ts src/navigation.test.ts src/workspace-compat.test.ts src/platform-connection.test.ts src/license-handler/site-connection.test.ts src/license-handler/site-info.test.ts",
+    "test": "php tests/backend-profiles.test.php && php tests/namespace-migration.test.php && php tests/translation-profile-url.test.php && php tests/workspace-identity.test.php && php tests/custom-translations.test.php && php tests/navigation.test.php && php tests/capability-surfaces.test.php && php tests/site-connection.test.php && php tests/site-key-storage.test.php && node --test --test-isolation=none src/translation-catalog/catalog.test.ts src/navigation.test.ts src/workspace-compat.test.ts src/platform-connection.test.ts src/foundation-reconnect.test.ts src/license-handler/site-connection.test.ts src/license-handler/site-info.test.ts",
     "test:wordpress-navigation": "bash tests/run-navigation-wordpress.sh",
     "test:wordpress-surfaces": "bash tests/surface-wordpress.sh",
     "test:browser-navigation": "node tests/navigation-browser.test.mjs",

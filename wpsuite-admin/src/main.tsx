@@ -30,7 +30,9 @@ import {
 import { LicenseHandler } from "./license-handler";
 import { BackendProfiles } from "./backend-profiles";
 import {
+  captureFoundationReconnectConnection,
   fetchPlatformConfiguration,
+  initializeUnboundFoundation,
   platformRestOptions,
   resolvePlatformConnection,
   validatePlatformConfiguration,
@@ -56,8 +58,8 @@ const legacyApiUrl =
 
 const legacyConfigUrl =
   !production || window.location.host === "dev.wpsuite.io"
-    ? "https://wpsuite.io/static/config/dev.json"
-    : "https://wpsuite.io/static/config/prod.json";
+    ? "https://wpsuite.io/static/config/foundation/dev/config.json"
+    : "https://wpsuite.io/static/config/foundation/prod/config.json";
 
 const wpsuite = getWpSuite();
 const HeadingComponent = Heading as unknown as ElementType;
@@ -108,33 +110,7 @@ const Main = (props: MainProps) => {
       try {
         const connection = platformBinding.connection;
         if (!connection) throw platformBinding.error;
-        const response = await fetchPlatformConfiguration(connection, () => ({
-          config: "prod",
-          baseUrl: "https://wpsuite.io",
-          userPoolId: "us-east-1_G0wEwK9tt",
-          identityPoolId: "us-east-1:11e55c9a-b768-48a2-8a0c-c51f1e99c129",
-          appClientPlugin: "5e6fs3pk1k1ju7cgpnp7o7si8u",
-          awsRegion: "us-east-1",
-          pricingTable: "prctbl_1QA6TQFjw5MDUzy6c3fBSPGL",
-          stripePublicKey:
-            "pk_live_51OVeJwFjw5MDUzy6pwTbsMjcBZjZioihzLAtxQsF91u4lYJC4mtqrJddSskhz6OPbWS0tr8XL2G1AwJaXEpv9Rgn008dAz5TEr",
-          permissions: {
-            owner: [
-              "transfer-account",
-              "manage-account",
-              "manage-sites",
-              "manage-subscriptions",
-              "manage-billing",
-            ],
-            admin: [
-              "manage-account",
-              "manage-sites",
-              "manage-subscriptions",
-              "manage-billing",
-            ],
-            accountant: ["manage-billing"],
-          },
-        }));
+        const response = await fetchPlatformConfiguration(connection, () => undefined);
         if (!response.ok) {
           console.error("Error loading configuration:", await response.json());
           setAmplifyConfigured(false);
@@ -143,6 +119,10 @@ const Main = (props: MainProps) => {
 
         const result = await response.json();
         validatePlatformConfiguration(connection, result);
+        if (wpsuite) {
+          captureFoundationReconnectConnection(wpsuite.siteSettings, connection, result);
+          initializeUnboundFoundation(wpsuite.siteSettings, connection);
+        }
         const rc = {
           Auth: {
             Cognito: {

@@ -1,4 +1,6 @@
 import { Amplify } from "aws-amplify";
+import * as CanonicalSiteApi from "@aws-amplify/api";
+import { buildSiteReconnectTarget, createSiteSelectorApi, getFoundationReconnectConnection } from "../platform-connection";
 import { fetchRecoverableSiteKey, fetchSiteInfoWithSiteKey, rememberCreatedSite } from "./site-info";
 import { get, patch, workspaceLicensePath } from "../workspace-api";
 import { fetchUserAttributes } from "@aws-amplify/auth";
@@ -1440,12 +1442,11 @@ function SiteSelector({
   const oneTimeKeys = useRef(new Map<string, string>());
   const pendingReplacements = useRef(new Map<string, PendingSiteKey>());
   const [connectionError, setConnectionError] = useState<string>();
-  const connectionTarget = useCallback((workspaceId: string, selectedId: string): SiteSettings => ({
-    ...getWpSuite()?.siteSettings,
-    workspaceId,
-    accountId: workspaceId,
-    siteId: selectedId,
-  }), []);
+  const currentConnectionSettings = getWpSuite()?.siteSettings;
+  const reconnectConnection = getFoundationReconnectConnection(currentConnectionSettings);
+  const selectorApi = useMemo(() => createSiteSelectorApi(API, CanonicalSiteApi, currentConnectionSettings, name => Amplify.getConfig().API?.REST?.[name]?.endpoint), [currentConnectionSettings]);
+  const connectionTarget = useCallback((workspaceId: string, selectedId: string): SiteSettings =>
+    buildSiteReconnectTarget(getWpSuite()?.siteSettings ?? {}, workspaceId, selectedId), []);
 
   const [enteredKey, setEnteredKey] = useState<{ binding: string; key: string }>();
   const [unavailableKeyBinding, setUnavailableKeyBinding] = useState<string>();
@@ -1472,7 +1473,7 @@ function SiteSelector({
 
   const fetchAccounts = useCallback(
     () =>
-      get({
+      selectorApi.get({
         apiName: "backendWithIam",
         path: "/account",
       })
@@ -1491,12 +1492,12 @@ function SiteSelector({
         .finally(() => {
           setSitesReloading(false);
         }),
-    [selectedAccountId],
+    [selectedAccountId, selectorApi],
   );
 
   const fetchSites = useCallback(
     ({ pageParam = null }: { pageParam: string | null }) =>
-      get({
+      selectorApi.get({
         apiName: "backend",
         path: `/account/${selectedAccountId}/site`,
         options: pageParam
@@ -1525,7 +1526,7 @@ function SiteSelector({
         .finally(() => {
           setSitesReloading(false);
         }),
-    [selectedAccountId, debouncedFilter, order],
+    [selectedAccountId, debouncedFilter, order, selectorApi],
   );
 
   const {
@@ -1533,7 +1534,7 @@ function SiteSelector({
     isPending: accountsPending,
     error: accountsError,
   } = useQuery({
-    queryKey: ["accounts"],
+    queryKey: ["accounts", "site-selector", reconnectConnection?.configUrl],
     queryFn: fetchAccounts,
     enabled: authStatus === "authenticated",
   });
@@ -1546,7 +1547,7 @@ function SiteSelector({
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ["sites", selectedAccountId, debouncedFilter, order],
+    queryKey: ["sites", selectedAccountId, debouncedFilter, order, "site-selector", reconnectConnection?.configUrl],
     queryFn: fetchSites,
     initialPageParam: null,
     getNextPageParam: (lastPage) => lastPage.lastKey ?? undefined,
@@ -1563,8 +1564,8 @@ function SiteSelector({
   );
 
   const totalPages = useMemo(
-    () => Math.max(sitesRecord?.pages.length ?? 0, 1),
-    [sitesRecord],
+    () => Math.max(Math.ceil(sites.length / PAGE_SIZE), sitesRecord?.pages.length ?? 0, 1),
+    [sites.length, sitesRecord],
   );
 
   if (totalPages > 0 && activePage > totalPages) {
@@ -1601,14 +1602,14 @@ function SiteSelector({
       };
       const result = await (siteDetails.siteId &&
       siteDetails.siteId.trim() !== ""
-        ? API.put({
+        ? selectorApi.put({
             apiName: "backend",
             path: `/account/${selectedAccountId}/site/${siteDetails.siteId}`,
             options: {
               body: siteUpdateDetails,
             },
           })
-        : API.post({
+        : selectorApi.post({
             apiName: "backend",
             path: `/account/${selectedAccountId}/site`,
             options: {
@@ -1655,7 +1656,7 @@ function SiteSelector({
 
   const deleteSiteMutation = useMutation({
     mutationFn: async (siteId: string) => {
-      await API.del({
+      await selectorApi.del({
         apiName: "backend",
         path: `/account/${selectedAccountId}/site/${siteId}`,
       }).response;
@@ -1727,7 +1728,7 @@ function SiteSelector({
                     pending = createPendingSiteKey(target, selected.siteKeyId ?? "");
                     pendingReplacements.current.set(binding, pending);
                   }
-                  const response = await API.put({
+                  const response = await selectorApi.put({
                     apiName: "backend",
                     path: `/workspace/${encodeURIComponent(selectedAccountId)}/site/${encodeURIComponent(selected.siteId)}/site-key`,
                     options: { body: { siteKey: pending.siteKey, expectedSiteKeyId: pending.expectedSiteKeyId, requestId: pending.requestId } },
@@ -1739,7 +1740,7 @@ function SiteSelector({
                 if (!usableSiteKey(key) && target.workspaceApiMode === "workspace") {
                   recoveringKey = true;
                   key = await fetchRecoverableSiteKey(target, apiUrl, Amplify.getConfig().API?.REST?.backend?.endpoint, async (path) => {
-                    const response = await API.get({ apiName: "backend", path }).response;
+                    const response = await selectorApi.get({ apiName: "backend", path }).response;
                     return response.body.json();
                   });
                   recoveringKey = false;
@@ -2140,7 +2141,7 @@ function SiteSelector({
               autoComplete="off"
               disabled={siteConnecting}
             />
-            {getWpSuite()?.siteSettings?.workspaceApiMode === "workspace" && (
+            {(reconnectConnection || getWpSuite()?.siteSettings?.workspaceApiMode === "workspace") && (
               <Group justify="flex-start">
                 <Button variant="subtle" color="red" onClick={() => handleConnect(true)} disabled={siteConnecting}>
                   {__("Replace the unavailable key…", TEXT_DOMAIN)}

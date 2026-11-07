@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   fetchPlatformConfiguration,
+  initializeUnboundFoundation,
   platformRestOptions,
   resolvePlatformConnection,
   validatePlatformConfiguration,
@@ -44,39 +45,44 @@ test("a demo explicit developer binding selects EU endpoints even with productio
   );
 });
 
-test("unconfigured sites retain their exact legacy endpoints and behavior", async () => {
-  for (const settings of [
-    undefined,
-    {},
-    { platformApiBaseUrl: "", platformConfigUrl: "" },
-    { workspaceApiMode: "workspace" },
-  ]) {
-    const connection = resolvePlatformConnection(
-      settings,
-      legacyApi,
-      legacyConfig,
-    );
-    assert.deepEqual(connection, {
-      apiBaseUrl: legacyApi,
-      configUrl: legacyConfig,
-      explicit: false,
-    });
-    assert.doesNotThrow(() =>
-      validatePlatformConfiguration(connection, { legacy: true }),
-    );
+test("unconfigured sites use production Foundation independently of legacy host defaults", async () => {
+  for (const settings of [undefined, {}, { platformApiBaseUrl: "", platformConfigUrl: "" }, { workspaceApiMode: "workspace" }]) {
+    const connection = resolvePlatformConnection(settings, "https://api-dev.wpsuite.io", legacyConfig);
+    assert.deepEqual(connection, { apiBaseUrl: "https://api.wpsuite.io", configUrl: "https://wpsuite.io/static/config/foundation/prod/config.json", explicit: true });
+    assert.doesNotThrow(() => validatePlatformConfiguration(connection, { workspaceApiMode: "workspace", foundationApiBaseUrl: connection.apiBaseUrl }));
+    assert.throws(() => validatePlatformConfiguration(connection, { workspaceApiMode: "legacy", foundationApiBaseUrl: connection.apiBaseUrl }));
+    await assert.rejects(fetchPlatformConfiguration(connection, () => { throw new Error("fallback used"); }, () => Promise.reject(new Error("offline"))), /offline/);
   }
-  const connection = resolvePlatformConnection(
-    undefined,
-    legacyApi,
-    legacyConfig,
-  );
-  const downloaded = { source: "legacy-fallback" };
-  const response = await fetchPlatformConfiguration(
-    connection,
-    () => downloaded,
-    () => Promise.reject(new Error("offline")),
-  );
-  assert.deepEqual(await response.json(), downloaded);
+});
+
+test("verified new connection initializes workspace routing and saved binding fields", () => {
+  const settings = {};
+  const connection = resolvePlatformConnection(settings, legacyApi, legacyConfig);
+  initializeUnboundFoundation(settings, connection);
+  assert.deepEqual(settings, { workspaceApiMode: "workspace", platformApiBaseUrl: connection.apiBaseUrl, platformConfigUrl: connection.configUrl });
+  const existing = { accountId: "existing", workspaceApiMode: "legacy" };
+  initializeUnboundFoundation(existing, connection);
+  assert.deepEqual(existing, { accountId: "existing", workspaceApiMode: "legacy" });
+});
+
+test("an existing unprofiled legacy binding keeps its endpoints", () => {
+  assert.deepEqual(resolvePlatformConnection({ accountId: "existing", siteId: "site" }, legacyApi, legacyConfig), { apiBaseUrl: legacyApi, configUrl: legacyConfig, explicit: false, });
+  const partial = { siteKey: "existing-key", workspaceApiMode: "legacy" };
+  assert.deepEqual(resolvePlatformConnection(partial, legacyApi, legacyConfig), { apiBaseUrl: legacyApi, configUrl: legacyConfig, explicit: false });
+  initializeUnboundFoundation(partial, { apiBaseUrl: "https://api.wpsuite.io", configUrl: "https://wpsuite.io/static/config/foundation/prod/config.json", explicit: true });
+  assert.deepEqual(partial, { siteKey: "existing-key", workspaceApiMode: "legacy" });
+});
+
+test("existing first-party account connections read current identity without rewriting the saved binding", () => {
+  for (const environment of ["prod", "dev"]) {
+    const settings = { accountId: "existing", siteId: "site", siteKey: "synthetic-existing-key", workspaceApiMode: "legacy" };
+    const original = { ...settings };
+    const api = environment === "prod" ? "https://api.wpsuite.io" : "https://api-dev.wpsuite.io";
+    const connection = resolvePlatformConnection(settings, api, `https://wpsuite.io/static/config/${environment}.json`);
+    assert.deepEqual(connection, { apiBaseUrl: api, configUrl: `https://wpsuite.io/static/config/foundation/${environment}/config.json`, explicit: false });
+    initializeUnboundFoundation(settings, connection);
+    assert.deepEqual(settings, original);
+  }
 });
 
 test("the platform API signing region can differ from Cognito without changing the endpoint binding", () => {
@@ -479,7 +485,7 @@ test("explicit workspace auth fails before transfer instead of falling back to I
 
 test("legacy backend JWT/error behavior and unrelated API helpers remain unchanged", async () => {
   const connection = resolvePlatformConnection(
-    undefined,
+    { accountId: "existing" },
     legacyApi,
     legacyConfig,
   );
