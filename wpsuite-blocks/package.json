@@ -1,6 +1,6 @@
 {
   "name": "@smart-cloud/wpsuite-blocks",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Shared Gutenberg blocks and React fallback lifecycle helpers for WP Suite plugins",
   "keywords": [
     "wordpress",
