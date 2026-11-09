@@ -3,6 +3,9 @@ declare(strict_types=1);
 use SmartCloud\WPSuite\Hub\BackendProfiles;
 use SmartCloud\WPSuite\Hub\SiteSettings;
 use SmartCloud\WPSuite\Hub\SiteKeyStorage;
+function wp_parse_url(string $url, int $component = -1): mixed { return parse_url($url, $component); }
+function wp_unslash(string $value): string { return stripslashes($value); }
+function sanitize_text_field(string $value): string { return trim(strip_tags($value)); }
 define('ABSPATH', __DIR__ . '/');
 define('DAY_IN_SECONDS', 86400);
 require __DIR__ . '/site-key-storage-fixture.php';
@@ -180,6 +183,7 @@ $override = new ReflectionProperty(BackendProfiles::class, 'override'); $overrid
 check(!BackendProfiles::verifiedRenderContext(), 'Render verification leaked to another selected profile');
 $_SERVER['HTTP_X_WPSUITE_RENDER_CONTEXT'][0] = 'Z'; reject(fn() => $reader->invoke(null), 'Tampered render capability accepted');
 check(!BackendProfiles::verifiedRenderContext(), 'Tampered header retained a trusted render marker');
+foreach ([' ' . $token['X-WPSuite-Render-Context'], '\\' . $token['X-WPSuite-Render-Context'], ' '] as $badToken) { $_SERVER['HTTP_X_WPSUITE_RENDER_CONTEXT'] = $badToken; reject(fn() => $reader->invoke(null), 'Normalized signed header accepted'); }
 $_SERVER['HTTP_X_WPSUITE_RENDER_CONTEXT'] = $token['X-WPSuite-Render-Context']; $_SERVER['REQUEST_METHOD'] = 'POST'; $_SERVER['REQUEST_URI'] = '/wp-json/wp/v2/posts';
 reject(fn() => $reader->invoke(null), 'Render capability authorized content writes');
 $_SERVER['REQUEST_URI'] = '/wp-json/smartcloud-static-publisher/v1/content-sync/head'; $reader->invoke(null);

@@ -84,6 +84,8 @@ define('SMARTCLOUD_FLOW_SLUG', 'smartcloud-flow');
 require SMARTCLOUD_WPSUITE_PATH . 'index.php';
 require $repo . '/smartcloud-agent-ready-product-family/agent-composer/src/Infrastructure/WordPress/Activation.php';
 require $repo . '/wpsuite-private-plugins/content-relations/includes/class-review-access.php';
+require $repo . '/wpsuite-private-plugins/content-relations/includes/class-configuration.php';
+require $repo . '/wpsuite-private-plugins/consent/includes/class-configuration.php';
 $sources = array(
     array('gatey/admin/php/admin.php', 'SmartCloud\\WPSuite\\Gatey\\Admin', 'addMenu'),
     array('ai-kit/admin/php/admin.php', 'SmartCloud\\WPSuite\\AiKit\\Admin', 'addMenu'),

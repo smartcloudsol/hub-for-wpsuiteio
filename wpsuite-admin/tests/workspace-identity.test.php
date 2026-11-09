@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+function wp_parse_url(string $url, int $component = -1): mixed { return parse_url($url, $component); }
 define('ABSPATH', __DIR__ . '/');
 require_once dirname(__DIR__) . '/php/model.php';
 use SmartCloud\WPSuite\Hub\SiteSettings;

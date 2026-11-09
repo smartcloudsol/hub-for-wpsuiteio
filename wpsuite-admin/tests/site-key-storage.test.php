@@ -3,6 +3,7 @@
 declare(strict_types=1);
 use SmartCloud\WPSuite\Hub\SiteSettings;
 use SmartCloud\WPSuite\Hub\SiteKeyStorage;
+function wp_parse_url(string $url, int $component = -1): mixed { return parse_url($url, $component); }
 define('ABSPATH', __DIR__ . '/');
 $child = $argv[1] ?? '';
 if ($child === '--rotated') $GLOBALS['fixture_key_rotation'] = 'rotated';

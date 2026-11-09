@@ -107,9 +107,9 @@ function add_query_arg(string $key, string $value, string $url): string
     return $url . (str_contains($url, '?') ? '&' : '?') . rawurlencode($key) . '=' . rawurlencode($value);
 }
 
-function wp_parse_url(string $url): array|false
+function wp_parse_url(string $url, int $component = -1): mixed
 {
-    return parse_url($url);
+    return parse_url($url, $component);
 }
 
 function esc_url_raw(string $url, array $protocols = array()): string

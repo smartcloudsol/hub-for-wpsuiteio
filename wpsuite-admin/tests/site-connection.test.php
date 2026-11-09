@@ -4,6 +4,8 @@ use SmartCloud\WPSuite\Hub\HubAdmin;
 use SmartCloud\WPSuite\Hub\SiteSettings;
 use SmartCloud\WPSuite\Hub\SiteKeyStorage;
 require_once __DIR__ . '/site-key-storage-fixture.php';
+function wp_parse_url(string $url, int $component = -1): mixed { return parse_url($url, $component); }
+function wp_unslash(string $value): string { return stripslashes($value); }
 define('ABSPATH', __DIR__ . '/');
 define('SMARTCLOUD_WPSUITE_PATH', dirname(__DIR__) . '/php/');
 define('SMARTCLOUD_WPSUITE_CANONICAL_SLUG', 'smartcloud-wpsuite');

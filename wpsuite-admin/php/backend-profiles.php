@@ -59,7 +59,7 @@ final class BackendProfiles
         add_action('rest_api_init', [self::class, 'registerRoutes']);
         // Profile state, signatures and backend-specific globals must never enter a shared page cache.
         if (self::captureContext() !== null) {
-            if (!defined('DONOTCACHEPAGE')) define('DONOTCACHEPAGE', true);
+            if (!defined('DONOTCACHEPAGE')) define('DONOTCACHEPAGE', true); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- Standard WordPress cache-control constant.
             add_action('send_headers', static function (): void { nocache_headers(); });
         }
     }
@@ -261,8 +261,10 @@ final class BackendProfiles
         global $wpdb;
         $lock = 'wpsuite-profiles-' . substr(hash('sha256', $wpdb->options), 0, 36);
         if (!self::$requestLease) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Database advisory lock must be uncached and connection-scoped.
             if ((string) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,0)', $lock)) !== '1') return new \WP_Error('backend_profile_busy', 'Another backend operation is running. Retry shortly.', ['status' => 409]);
             self::$requestLease = true;
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Database advisory lock must be uncached and connection-scoped.
             register_shutdown_function(static function () use ($wpdb, $lock): void { $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock)); });
         }
         wp_cache_delete(self::OPTION, 'options'); wp_cache_delete('alloptions', 'options');
@@ -576,6 +578,7 @@ final class BackendProfiles
     {
         global $wpdb;
         $lock = 'wpsuite-profiles-' . substr(hash('sha256', $wpdb->options), 0, 36);
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Database advisory lock must be uncached and connection-scoped.
         if ((string) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,0)', $lock)) !== '1') throw new \RuntimeException('PROFILE_BUSY');
         try {
             wp_cache_delete(self::OPTION, 'options'); wp_cache_delete('alloptions', 'options');
@@ -590,6 +593,7 @@ final class BackendProfiles
             update_option(self::OPTION, $next, false);
             if (serialize(get_option(self::OPTION)) !== serialize($next)) throw new \RuntimeException('PROFILE_STORE_FAILED');
             self::$requestContext = ['id' => $next['active'], 'generation' => $next['generation']];
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Database advisory lock must be uncached and connection-scoped.
         } finally { $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock)); }
     }
 
@@ -614,11 +618,14 @@ final class BackendProfiles
     private static function readRenderContext(): void
     {
         self::$verifiedRenderBinding = null;
-        $token = $_SERVER['HTTP_X_WPSUITE_RENDER_CONTEXT'] ?? '';
+        $token = isset($_SERVER['HTTP_X_WPSUITE_RENDER_CONTEXT']) && is_string($_SERVER['HTTP_X_WPSUITE_RENDER_CONTEXT']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_X_WPSUITE_RENDER_CONTEXT'])) : '';
+        // Signed tokens contain only base64url and a separator; normalization must never change signed bytes.
+        if (isset($_SERVER['HTTP_X_WPSUITE_RENDER_CONTEXT']) && (!is_string($_SERVER['HTTP_X_WPSUITE_RENDER_CONTEXT']) || $token !== $_SERVER['HTTP_X_WPSUITE_RENDER_CONTEXT'] || ($token !== '' && !preg_match('/^[A-Za-z0-9_-]+\.[a-f0-9]{64}$/D', $token)))) wp_die('The publishing profile is no longer valid.', '', ['response' => 403]); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Exact signed bytes are compared, never used without validation.
         if ($token === '') return;
         try {
-            $method = $_SERVER['REQUEST_METHOD'] ?? '';
-            $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+            $method = isset($_SERVER['REQUEST_METHOD']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_METHOD'])) : '';
+            $uri = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
+            $path = wp_parse_url($uri, PHP_URL_PATH);
             $publisherPost = $method === 'POST' && is_string($path) && str_starts_with($path, '/wp-json/') && self::publisherCallback(substr($path, strlen('/wp-json')));
             if (!is_string($token) || strlen($token) > 1024 || (!in_array($method, ['GET', 'HEAD'], true) && !$publisherPost)) throw new \RuntimeException('INVALID_RENDER_CONTEXT');
             $parts = explode('.', $token);

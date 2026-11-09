@@ -100,7 +100,7 @@ class SiteSettings
             throw new \InvalidArgumentException('Explicit platform connection requires workspace API mode.');
         }
         foreach ($urls as $field => $value) {
-            $parts = parse_url($value);
+            $parts = wp_parse_url($value);
             if (preg_match('/[\\\\\s?#\x00-\x1f\x7f]/', $value) || filter_var($value, FILTER_VALIDATE_URL) === false || !is_array($parts)
                 || strtolower($parts['scheme'] ?? '') !== 'https' || empty($parts['host'])
                 || isset($parts['user']) || isset($parts['pass'])) {

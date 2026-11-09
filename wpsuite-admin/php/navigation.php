@@ -93,7 +93,7 @@ final class AdminNavigation
             $this->hideMenuRow($parent . '-advanced');
             add_action('load-' . get_plugin_page_hookname($parent . '-advanced', $parent), static function () use ($parent): void {
                 $args = array('page' => $parent . '-settings');
-                if (isset($_GET['section']) && is_string($_GET['section'])) { $args['section'] = sanitize_key(wp_unslash($_GET['section'])); }
+                if (isset($_GET['section']) && is_string($_GET['section'])) { $args['section'] = sanitize_key(wp_unslash($_GET['section'])); } // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only navigation or redirect; no state mutation.
                 wp_safe_redirect(add_query_arg($args, admin_url('admin.php')));
                 exit;
             });
@@ -154,19 +154,19 @@ final class AdminNavigation
             if ($entry['has_reset'] && current_user_can('manage_options') && current_user_can($entry['required_capability'])) {
                 echo '<div id="wpsuite-config-reset" data-reset-url="' . esc_url(rest_url('smartcloud-wpsuite/v1/admin-resets/' . $entry['id'])) . '" data-rest-nonce="' . esc_attr(wp_create_nonce('wp_rest')) . '"></div>';
             }
-            do_action($originalHook);
+            do_action($originalHook); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.DynamicHooknameFound -- Replay the registered original WordPress admin hook for backward compatibility.
         } : array($this->hub, 'renderAdminPage');
         if ($detailHook !== null) {
             $callback = function () use ($detailHook, $entry): void {
                 $this->hub->renderAdminPage();
                 echo '<section id="wpsuite-product-details" data-wpsuite-product="' . esc_attr($entry['id']) . '" aria-label="' . esc_attr($entry['label']) . '" hidden>';
-                do_action($detailHook);
+                do_action($detailHook); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.DynamicHooknameFound -- Replay the registered original WordPress admin hook for backward compatibility.
                 echo '</section>';
             };
             add_action('load-' . $detailHook, function () use ($slug): void {
                 $args = array('page' => $slug, 'panel' => 'details');
                 foreach (array('section', 'aikit-page') as $key) {
-                    if (isset($_GET[$key]) && is_string($_GET[$key])) { $args[$key] = sanitize_key(wp_unslash($_GET[$key])); }
+                    if (isset($_GET[$key]) && is_string($_GET[$key])) { $args[$key] = sanitize_key(wp_unslash($_GET[$key])); } // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only navigation or redirect; no state mutation.
                 }
                 wp_safe_redirect(add_query_arg($args, admin_url('admin.php')));
                 exit;
@@ -239,8 +239,8 @@ final class AdminNavigation
         if (basename($parts['path'] ?? '') !== ($GLOBALS['pagenow'] ?? '')) { return false; }
         parse_str($parts['query'] ?? '', $query);
         foreach ($query as $key => $value) {
-            $actual = $_GET[$key] ?? ($key === 'page' ? ($GLOBALS['plugin_page'] ?? null) : null);
-            if (!is_string($actual) || wp_unslash($actual) !== $value) { return false; }
+            $actual = isset($_GET[$key]) && is_string($_GET[$key]) ? sanitize_text_field(wp_unslash($_GET[$key])) : ($key === 'page' ? ($GLOBALS['plugin_page'] ?? null) : null); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only navigation or redirect; no state mutation.
+            if (!is_string($actual) || $actual !== $value) { return false; }
         }
         return true;
     }
@@ -252,7 +252,7 @@ final class AdminNavigation
             return null;
         }
         $parent = SMARTCLOUD_WPSUITE_CANONICAL_SLUG;
-        $page = $GLOBALS['plugin_page'] ?? ($_GET['page'] ?? '');
+        $page = $GLOBALS['plugin_page'] ?? (isset($_GET['page']) && is_string($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : ''); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only navigation or redirect; no state mutation.
         $page = is_string($page) && ($GLOBALS['pagenow'] ?? '') === 'admin.php' ? wp_unslash($page) : '';
         $advanced = $page === $parent . '-advanced' || isset($this->legacyDestinations[$page]) || $this->isAdvancedRequest();
         $capabilityPages = array_map(fn(array $entry): string => $this->capabilitySlug($entry['id']), $this->capabilities);
@@ -296,7 +296,7 @@ final class AdminNavigation
     public function enqueueNative(string $hook): void
     {
         // Overview needs only small read-only probes, not entire plugin admin UIs.
-        if (($_GET['page'] ?? '') === SMARTCLOUD_WPSUITE_CANONICAL_SLUG) {
+        if (isset($_GET['page']) && is_string($_GET['page']) && sanitize_key(wp_unslash($_GET['page'])) === SMARTCLOUD_WPSUITE_CANONICAL_SLUG) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only navigation or redirect; no state mutation.
             foreach ($this->capabilities as $entry) {
                 if (is_callable($entry['backend_enqueue']) && current_user_can($entry['required_capability'])) {
                     ($entry['backend_enqueue'])();

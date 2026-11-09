@@ -18,10 +18,11 @@ export default defineConfig({
   sourcemap: false,
   dts: false,
   clean: true,
-  external: ["react", "react-dom"],
+  external: ["react", "react-dom", "react/jsx-runtime"],
   esbuildPlugins: [
     externalGlobal.externalGlobalPlugin({
       react: "React",
+      "react/jsx-runtime": "ReactJSXRuntime",
       "react-dom": "ReactDOM",
     }),
   ],

@@ -489,7 +489,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         wp_register_script(
             'smartcloud-wpsuite-amplify-vendor',
             SMARTCLOUD_WPSUITE_URL . 'assets/js/amplify-vendor.min.js',
-            array("react", "react-dom"),
+            array("react", "react-dom", "react-jsx-runtime"),
             \SmartCloud\WPSuite\Hub\VERSION_AMPLIFY . '-' . substr(amplifyVendorDigest(SMARTCLOUD_WPSUITE_PATH . 'assets/js/amplify-vendor.min.js'), 0, 16),
             array('in_footer' => true, 'strategy' => 'defer')
         );
@@ -497,15 +497,16 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         wp_register_script(
             'smartcloud-wpsuite-mantine-vendor',
             SMARTCLOUD_WPSUITE_URL . 'assets/js/mantine-vendor.min.js',
-            array("react", "react-dom"),
-            \SmartCloud\WPSuite\Hub\VERSION_MANTINE,
+            array("react", "react-dom", "react-jsx-runtime"),
+            \SmartCloud\WPSuite\Hub\VERSION_MANTINE . '-' . substr((string) hash_file('sha256', SMARTCLOUD_WPSUITE_PATH . 'assets/js/mantine-vendor.min.js'), 0, 16),
             array('in_footer' => true, 'strategy' => 'defer')
         );
 
-        $main_script_dependencies = $this->getAssetDependencies(SMARTCLOUD_WPSUITE_PATH . 'main.asset.php');
-        wp_enqueue_script('smartcloud-wpsuite-main-script', SMARTCLOUD_WPSUITE_URL . 'main.js', $main_script_dependencies, SMARTCLOUD_WPSUITE_VERSION, array('in_footer' => true, 'strategy' => 'defer'));
-
-        //wp_add_inline_script('smartcloud-wpsuite-main-script', $js, 'before');
+        // The shared main bundle mounts the site-wide reCAPTCHA provider only when configured.
+        if ($this->siteSettings->renderRecaptchaProvider && trim($this->siteSettings->reCaptchaPublicKey) !== '') {
+            $main_script_dependencies = $this->getAssetDependencies(SMARTCLOUD_WPSUITE_PATH . 'main.asset.php');
+            wp_enqueue_script('smartcloud-wpsuite-main-script', SMARTCLOUD_WPSUITE_URL . 'main.js', $main_script_dependencies, SMARTCLOUD_WPSUITE_VERSION, array('in_footer' => true, 'strategy' => 'defer'));
+        }
     }
 
     private function getAssetDependencies(string $asset_path): array
@@ -550,8 +551,8 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             wp_register_script(
                 'smartcloud-wpsuite-mantine-vendor',
                 SMARTCLOUD_WPSUITE_URL . 'assets/js/mantine-vendor.min.js',
-                array('react', 'react-dom'),
-                VERSION_MANTINE,
+                array('react', 'react-dom', 'react-jsx-runtime'),
+                VERSION_MANTINE . '-' . substr((string) hash_file('sha256', SMARTCLOUD_WPSUITE_PATH . 'assets/js/mantine-vendor.min.js'), 0, 16),
                 array('in_footer' => true, 'strategy' => 'defer')
             );
 
@@ -568,7 +569,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
 
             if ($hook === $connect_suffix) {
                 $page = 'connect';
-            } elseif ($hook === $settings_suffix || (($_GET['page'] ?? '') === SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '-advanced' && current_user_can('manage_options'))) {
+            } elseif ($hook === $settings_suffix || (isset($_GET['page']) && is_string($_GET['page']) && sanitize_key(wp_unslash($_GET['page'])) === SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '-advanced' && current_user_can('manage_options'))) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only admin navigation selector.
                 $page = 'settings';
             } else {
                 $page = '';
@@ -628,8 +629,8 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
 
     public function renderAdminPage()
     {
-        $page = isset($_GET['page']) && is_string($_GET['page'])
-            ? sanitize_key(wp_unslash($_GET['page']))
+        $page = isset($_GET['page']) && is_string($_GET['page']) // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only admin navigation selector.
+            ? sanitize_key(wp_unslash($_GET['page'])) // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only admin navigation selector.
             : SMARTCLOUD_WPSUITE_CANONICAL_SLUG;
         $navigation = $this->navigation?->bootstrap($page);
         if ($navigation !== null) {
@@ -925,7 +926,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             || $settings->siteKey !== $siteKey) return null;
         $api_base = $settings->platformApiBaseUrl;
         if ($api_base === '') {
-            $api_base = strtolower((string) parse_url(get_site_url(), PHP_URL_HOST)) === 'dev.wpsuite.io'
+            $api_base = strtolower((string) wp_parse_url(get_site_url(), PHP_URL_HOST)) === 'dev.wpsuite.io'
                 ? 'https://api-dev.wpsuite.io'
                 : 'https://api.wpsuite.io';
             $api_base = BackendProfiles::legacyApiBase($api_base);

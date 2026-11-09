@@ -88,6 +88,7 @@ final class ConfigurationReset
         }
         // A connection-owned lock is released even if PHP terminates unexpectedly.
         $lock = 'wpsuite-reset-' . substr(hash('sha256', $wpdb->options . ':' . $request['id']), 0, 40);
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Database advisory lock must be uncached and connection-scoped.
         if ((string) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, 0)', $lock)) !== '1') {
             return self::error('reset_busy', __('Another configuration reset is in progress. Try again shortly.', 'smartcloud-wpsuite'), 409);
         }
@@ -99,6 +100,7 @@ final class ConfigurationReset
             if (is_wp_error($result)) { return $result; }
             return $result === true ? array('reset' => true, 'reload_required' => true) : self::failed();
         } catch (\Throwable $error) { return self::failed(); }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Database advisory lock must be uncached and connection-scoped.
         finally { $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock)); }
     }
 
@@ -113,12 +115,14 @@ final class ConfigurationReset
     private function resetOptions(array $reset, string $revision): bool|\WP_Error
     {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Atomic reset requires transaction/row locks and uncached verification.
         if ($wpdb->query('START TRANSACTION') === false) { return self::failed(); }
         $committed = false;
         try {
             $keys = $reset['options'];
             sort($keys, SORT_STRING);
             foreach ($keys as $key) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Atomic reset requires transaction/row locks and uncached verification.
                 $wpdb->get_row($wpdb->prepare("SELECT option_id FROM {$wpdb->options} WHERE option_name = %s FOR UPDATE", $key));
                 if ($wpdb->last_error) { return self::failed(); }
             }
@@ -127,10 +131,12 @@ final class ConfigurationReset
             }
             $result = self::deleteOptions($keys, false);
             if (is_wp_error($result)) { return $result; }
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Atomic reset requires transaction/row locks and uncached verification.
             if ($wpdb->query('COMMIT') === false) { return self::failed(); }
             $committed = true;
             return true;
         } finally {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Atomic reset requires transaction/row locks and uncached verification.
             if (!$committed) { $wpdb->query('ROLLBACK'); }
             foreach ($reset['options'] as $key) { wp_cache_delete($key, 'options'); }
             wp_cache_delete('alloptions', 'options');
@@ -145,6 +151,7 @@ final class ConfigurationReset
         sort($keys, SORT_STRING);
         $state = array();
         foreach ($keys as $key) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Atomic reset requires transaction/row locks and uncached verification.
             $row = $wpdb->get_row($wpdb->prepare("SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", $key), ARRAY_A);
             if ($wpdb->last_error) { throw new \RuntimeException('Configuration unavailable'); }
             $state[$key] = $row;
@@ -156,6 +163,7 @@ final class ConfigurationReset
     public static function deleteOptions(array $keys, bool $transaction = true): bool|\WP_Error
     {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Atomic reset requires transaction/row locks and uncached verification.
         if ($transaction && $wpdb->query('START TRANSACTION') === false) { return self::failed(); }
         try {
             foreach ($keys as $key) {
@@ -163,12 +171,15 @@ final class ConfigurationReset
                 wp_cache_delete($key, 'options');
                 wp_cache_delete('alloptions', 'options');
                 delete_option($key);
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Atomic reset requires transaction/row locks and uncached verification.
                 if ($wpdb->get_var($wpdb->prepare("SELECT option_id FROM {$wpdb->options} WHERE option_name = %s", $key)) !== null
                     || $wpdb->last_error) { throw new \RuntimeException('Configuration reset failed'); }
             }
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Atomic reset requires transaction/row locks and uncached verification.
             if ($transaction && $wpdb->query('COMMIT') === false) { throw new \RuntimeException('Configuration reset failed'); }
             return true;
         } catch (\Throwable $error) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Atomic reset requires transaction/row locks and uncached verification.
             if ($transaction) { $wpdb->query('ROLLBACK'); }
             return self::failed();
         } finally {
