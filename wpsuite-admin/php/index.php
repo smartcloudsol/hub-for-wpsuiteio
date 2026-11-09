@@ -342,12 +342,14 @@ class HubAdmin
             return;
         }
 
+        $modified_at = null;
         if ($asset === 'theme.css') {
             $content = wp_get_custom_css(WPSUITE_CUSTOM_CSS_STYLESHEET);
             $content_type = 'text/css; charset=UTF-8';
             $cache_control = 'public, max-age=300, must-revalidate';
         } elseif ($asset === 'custom-translations.json') {
             $state = $this->customTranslations->getState();
+            $modified_at = $this->customTranslations->modifiedAt();
             $content = $state['json'];
             $content_type = 'application/json; charset=UTF-8';
             $requested_revision = isset($_GET['ver']) // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only cache selector for a virtual asset; no state is changed.
@@ -366,6 +368,11 @@ class HubAdmin
             $cache_control = 'private, no-cache, must-revalidate';
         }
 
+        if (in_array($asset, array('lic.jws', 'config.enc'), true)) {
+            $refreshed = (int) get_option(BackendProfiles::optionName(WPSUITE_LICENSE_REFRESH_OPTION), 0);
+            if ($refreshed > 0) $modified_at = $refreshed;
+        }
+
         if (in_array($asset, array('lic.jws', 'config.enc'), true) && !$this->hasCurrentConfigBinding()) {
             $content = '';
         }
@@ -379,6 +386,8 @@ class HubAdmin
         }
 
         $etag = '"' . hash('sha256', $content) . '"';
+        // This is the saved source's timestamp, never the current request time.
+        if ($modified_at !== null) header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $modified_at) . ' GMT');
         $request_etag = isset($_SERVER['HTTP_IF_NONE_MATCH'])
             ? sanitize_text_field(wp_unslash($_SERVER['HTTP_IF_NONE_MATCH']))
             : '';

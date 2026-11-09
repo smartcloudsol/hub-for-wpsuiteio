@@ -15,6 +15,7 @@ if (!defined('ABSPATH')) {
 
 const WPSUITE_CUSTOM_TRANSLATIONS_OPTION = 'smartcloud-wpsuite/custom-translations-catalog';
 const WPSUITE_CUSTOM_TRANSLATIONS_DEFAULT_LOCALE_OPTION = 'smartcloud-wpsuite/custom-translations-default-locale';
+const WPSUITE_CUSTOM_TRANSLATIONS_UPDATED_OPTION = 'smartcloud-wpsuite/custom-translations-updated-at';
 const WPSUITE_CUSTOM_TRANSLATIONS_LOCK = 'smartcloud-wpsuite/custom-translations-lock';
 const WPSUITE_CUSTOM_TRANSLATIONS_MAX_BYTES = 1048576;
 const WPSUITE_CUSTOM_TRANSLATIONS_MAX_LOCALES = 100;
@@ -69,6 +70,13 @@ final class CustomTranslationsCatalog
     public function hasTranslations(): bool
     {
         return $this->getState()['catalog'] !== array();
+    }
+
+    /** Historical catalogs may have no recorded modification time. */
+    public function modifiedAt(): ?int
+    {
+        $value = get_option(WPSUITE_CUSTOM_TRANSLATIONS_UPDATED_OPTION, null);
+        return is_numeric($value) && (int) $value > 0 ? (int) $value : null;
     }
 
     public function getAssetUrl(): string
@@ -307,6 +315,7 @@ final class CustomTranslationsCatalog
             }
 
             if ($changed) {
+                update_option(WPSUITE_CUSTOM_TRANSLATIONS_UPDATED_OPTION, time(), false);
                 $old_asset_url = ($this->assetUrlProvider)($current['revision']);
                 $new_asset_url = ($this->assetUrlProvider)($next['revision']);
                 do_action('smartcloud_static_publisher_resource_changed_v1', array(

@@ -275,6 +275,7 @@ expect(
 );
 expect(!isset($GLOBALS['wpsuite_test_options'][WPSUITE_CUSTOM_TRANSLATIONS_LOCK]), 'The write lock must be released.');
 expect(count($GLOBALS['wpsuite_test_actions']) === 2, 'A changed catalog must emit resource and catalog change actions.');
+expect($store->modifiedAt() !== null && abs(time() - $store->modifiedAt()) < 5, 'A changed catalog must record its source modification time.');
 expect(
     $GLOBALS['wpsuite_test_actions'][0][0] === 'smartcloud_static_publisher_resource_changed_v1'
         && $GLOBALS['wpsuite_test_actions'][0][1][0]['blogId'] === 7
@@ -287,6 +288,7 @@ expect(
 );
 
 $update_count = count($GLOBALS['wpsuite_test_updates']);
+$modified_at = $store->modifiedAt();
 $action_count = count($GLOBALS['wpsuite_test_actions']);
 $idempotent = $store->putRestResponse(
     new WP_REST_Request($body, array('If-Match' => $saved->data['revision']))
@@ -294,6 +296,7 @@ $idempotent = $store->putRestResponse(
 expect($idempotent instanceof WP_REST_Response, 'An idempotent save must succeed.');
 expect($idempotent->data['changed'] === false, 'An identical save must be reported as unchanged.');
 expect(count($GLOBALS['wpsuite_test_updates']) === $update_count, 'An identical save must not rewrite the option.');
+expect($store->modifiedAt() === $modified_at, 'An identical save must not advance the source modification time.');
 expect(count($GLOBALS['wpsuite_test_actions']) === $action_count, 'An identical save must not emit change actions.');
 
 $legacy_body = json_encode(array('catalog' => get_object_vars($saved->data['catalog'])), JSON_UNESCAPED_UNICODE);
