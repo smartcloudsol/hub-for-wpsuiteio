@@ -28,16 +28,20 @@ if ($phase === 'install') {
     $complete = true;
     exit;
 }
+$expect = json_decode(file_get_contents($wpRoot . '/generation-expectations.json'), true, 512, JSON_THROW_ON_ERROR);
 if ($phase === 'setup') {
     $plugins = json_decode(file_get_contents($wpRoot . '/generation-plugins.json'), true, 512, JSON_THROW_ON_ERROR);
     foreach ($plugins as $file) {
         if (!file_exists(WP_PLUGIN_DIR . '/' . $file)) throw new RuntimeException('Missing plugin: ' . $file);
     }
     update_option('active_plugins', $plugins);
+    $siteSettings = (object) array('workspaceId' => 'fixture-workspace', 'siteId' => 'fixture-site', 'siteKey' => 'fixture-key', 'workspaceApiMode' => 'legacy');
     foreach (array('smartcloud-wpsuite', 'hub-for-wpsuiteio') as $prefix) {
+        update_option($prefix . '/site-settings', $siteSettings);
         update_option($prefix . '/top-menu-owner', 'gatey/gatey.php');
-        update_option($prefix . '/top-menu-owner/version', '2.5.17');
+        update_option($prefix . '/top-menu-owner/version', $expect['baseline_owner']);
     }
+    update_option('gatey', array('fixture' => 'preserve-gatey-settings'));
     $complete = true;
     exit;
 }
@@ -62,15 +66,20 @@ foreach ($pages as $page) {
 }
 $version = defined('SMARTCLOUD_WPSUITE_VERSION') ? SMARTCLOUD_WPSUITE_VERSION : 'missing';
 $ownerVersion = get_option($root . '/top-menu-owner/version');
-if ($phase === 'settled') {
-    $expected = $scenario === 'baseline' ? '2.5.17' : '2.6.0';
-    if ($version !== $expected || $ownerVersion !== $expected) {
-        throw new RuntimeException("Owner failed to converge: runtime={$version}, owner={$ownerVersion}, expected={$expected}");
-    }
-    if ($scenario !== 'baseline') {
-        if (!class_exists('SmartCloud\\WPSuite\\Hub\\AdminNavigation')) throw new RuntimeException('New navigation was not loaded');
-        if (!isset($_registered_pages[get_plugin_page_hookname($root . '-advanced', $root)])) throw new RuntimeException('Advanced is unavailable');
-    }
+$expectedRuntime = $expect['settled_runtime'];
+$validRuntime = $phase === 'first' ? in_array($version, $expect['versions'], true) : $version === $expectedRuntime;
+if (!$validRuntime || $ownerVersion !== $expect['owner']) {
+    throw new RuntimeException("Owner failed: runtime={$version}, owner={$ownerVersion}, expected runtime={$expectedRuntime}, owner={$expect['owner']}");
+}
+foreach (array('smartcloud-wpsuite', 'hub-for-wpsuiteio') as $prefix) {
+    global $wpdb;
+    $site = maybe_unserialize($wpdb->get_var($wpdb->prepare("SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", $prefix . '/site-settings')));
+    if (!is_object($site) || ($site->workspaceId ?? null) !== 'fixture-workspace' || ($site->siteId ?? null) !== 'fixture-site' || ($site->siteKey ?? null) !== 'fixture-key' || ($site->workspaceApiMode ?? null) !== 'legacy') throw new RuntimeException('Site settings changed: ' . $prefix);
+}
+if (get_option('gatey') !== array('fixture' => 'preserve-gatey-settings')) throw new RuntimeException('Gatey settings changed');
+if ($phase === 'settled' && version_compare($expect['owner'], $expect['baseline_owner'], '>')) {
+    if (!class_exists('SmartCloud\\WPSuite\\Hub\\AdminNavigation')) throw new RuntimeException('New navigation was not loaded');
+    if (!isset($_registered_pages[get_plugin_page_hookname($root . '-advanced', $root)])) throw new RuntimeException('Advanced is unavailable');
 }
 printf("PASS %s/%s: runtime=%s owner=%s original-pages=%d\n", $scenario, $phase, $version, $ownerVersion, count($pages));
 $complete = true;

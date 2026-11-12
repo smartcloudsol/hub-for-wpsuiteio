@@ -1,10 +1,13 @@
 {
   "name": "@smart-cloud/wpsuite-amplify-vendor",
-  "version": "1.1.15",
+  "version": "1.1.16",
   "private": true,
   "main": "dist/amplify-vendor.min.js",
   "scripts": {
-    "build": "tsup --minify"
+    "build": "tsup --minify",
+    "test": "node test-jsx-runtime.mjs && node test-digest.mjs",
+    "test:exports": "node test-export-surface.mjs",
+    "test:browser": "node test-authenticator.browser.mjs"
   },
   "dependencies": {
     "@aws-amplify/core": "6.18.0",

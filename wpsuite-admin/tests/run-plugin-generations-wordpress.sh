@@ -68,6 +68,10 @@ WORKSPACE="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 "${PHP_BIN}" "${SCRIPT_DIR}/plugin-generations-wordpress.php" "${WP_ROOT}" install
 for scenario in ${GENERATION_SCENARIOS:-baseline gatey smartcloud-ai-kit smartcloud-flow smartcloud-static-publisher smartcloud-agent-composer smartcloud-consent smartcloud-content-relations all-new}; do
     python3 "${SCRIPT_DIR}/prepare-plugin-generations.py" "${WP_ROOT}" "${BASELINE_ROOT}" "${WORKSPACE}" "${scenario}"
+    if [[ -n "${GENERATION_SNAPSHOT_DIR:-}" ]]; then
+        mkdir -p "${GENERATION_SNAPSHOT_DIR}"
+        cp "${WP_ROOT}/generation-expectations.json" "${GENERATION_SNAPSHOT_DIR}/${scenario}.json"
+    fi
     GENERATION_SETUP=1 "${PHP_BIN}" "${SCRIPT_DIR}/plugin-generations-wordpress.php" "${WP_ROOT}" setup "${scenario}"
     "${PHP_BIN}" "${SCRIPT_DIR}/plugin-generations-wordpress.php" "${WP_ROOT}" first "${scenario}"
     "${PHP_BIN}" "${SCRIPT_DIR}/plugin-generations-wordpress.php" "${WP_ROOT}" settled "${scenario}"

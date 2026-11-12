@@ -3,10 +3,13 @@ export { del, get, head, patch, post, put } from "aws-amplify/api";
 export { Hub, I18n } from "aws-amplify/utils";
 export { cognitoUserPoolsTokenProvider } from "aws-amplify/auth/cognito";
 export {
+  confirmSignIn,
   fetchAuthSession,
   fetchUserAttributes,
   fetchMFAPreference,
   getCurrentUser,
+  forgetDevice,
+  rememberDevice,
   signOut,
   signUp,
   updateMFAPreference,
