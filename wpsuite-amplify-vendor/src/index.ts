@@ -57,3 +57,6 @@ export {
   type CustomProvider,
   type Direction,
 } from "@smart-cloud/aws-amplify-ui-react";
+export { useAuthenticatorServices } from '@smart-cloud/aws-amplify-ui-react-core';
+export { getWebAuthnMfaCapability } from './capability-runtime';
+export type { AuthenticatorServices, WebAuthnMfaCapability, WebAuthnMfaBinding, WebAuthnMfaStatus, UpdateWebAuthnMfaInput, WebAuthnMfaState } from '@smart-cloud/aws-amplify-ui';

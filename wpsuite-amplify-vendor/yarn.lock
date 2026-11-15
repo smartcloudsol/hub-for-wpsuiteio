@@ -138,6 +138,20 @@
     "@smithy/util-utf8" "^2.0.0"
     tslib "^2.6.2"
 
+"@aws-sdk/client-cognito-identity-provider@3.1111.0":
+  version "3.1111.0"
+  resolved "https://registry.npmjs.org/@aws-sdk/client-cognito-identity-provider/-/client-cognito-identity-provider-3.1111.0.tgz#42160b845702a134ea89db403900edfa30da3217"
+  integrity sha512-wMMwWOJIaSnoMKitEi1ZCanKMo0kXdN7DQMT8TJA/s2yRwKMw2z6rayBxTbzLENRO8Ct3tInHtbh/9+g3b6/OA==
+  dependencies:
+    "@aws-sdk/core" "^3.977.8"
+    "@aws-sdk/credential-provider-node" "^3.972.80"
+    "@aws-sdk/types" "^3.974.4"
+    "@smithy/core" "^3.31.1"
+    "@smithy/fetch-http-handler" "^5.6.13"
+    "@smithy/node-http-handler" "^4.9.13"
+    "@smithy/types" "^4.16.1"
+    tslib "^2.6.2"
+
 "@aws-sdk/client-firehose@^3.1012.0":
   version "3.1164.0"
   resolved "https://registry.npmjs.org/@aws-sdk/client-firehose/-/client-firehose-3.1164.0.tgz#42617f131faba89c15c70d6042401c957f427419"
@@ -180,6 +194,20 @@
     "@smithy/types" "^4.19.0"
     tslib "^2.6.2"
 
+"@aws-sdk/core@^3.977.8", "@aws-sdk/core@^3.981.0":
+  version "3.981.0"
+  resolved "https://registry.npmjs.org/@aws-sdk/core/-/core-3.981.0.tgz#dd0b57a63a665bca0bbc386ab906b66a2a2bf88c"
+  integrity sha512-Mnu7gaDrC5UCdyH8uLxLfB2eWbjE/HbjKX1U1J2VQxG3TTATUDObW2wU3I8iH3e9YH5NN2CY6w1mlAIe2XJ3jg==
+  dependencies:
+    "@aws-sdk/types" "^3.975.1"
+    "@aws-sdk/xml-builder" "^3.972.43"
+    "@aws/lambda-invoke-store" "^0.3.0"
+    "@smithy/core" "^3.40.0"
+    "@smithy/signature-v4" "^5.7.5"
+    "@smithy/types" "^4.20.0"
+    bowser "^2.11.0"
+    tslib "^2.6.2"
+
 "@aws-sdk/core@^3.980.1":
   version "3.980.1"
   resolved "https://registry.npmjs.org/@aws-sdk/core/-/core-3.980.1.tgz#79fba74bdf70d900e8732e5a83eca3e671679cf2"
@@ -205,6 +233,17 @@
     "@smithy/types" "^4.19.0"
     tslib "^2.6.2"
 
+"@aws-sdk/credential-provider-env@^3.972.84":
+  version "3.972.84"
+  resolved "https://registry.npmjs.org/@aws-sdk/credential-provider-env/-/credential-provider-env-3.972.84.tgz#d57034b738ff1e303424d701dfcac7b786b01e65"
+  integrity sha512-akZJetiMVeLRHsKzYh3LamDCo74ZUCeo0XoyRKMEMZT5qP7ReM6LhpioBCyuqKP5Vav5gEOeCmaQV0VVQr1Meg==
+  dependencies:
+    "@aws-sdk/core" "^3.981.0"
+    "@aws-sdk/types" "^3.975.1"
+    "@smithy/core" "^3.40.0"
+    "@smithy/types" "^4.20.0"
+    tslib "^2.6.2"
+
 "@aws-sdk/credential-provider-http@^3.972.84":
   version "3.972.84"
   resolved "https://registry.npmjs.org/@aws-sdk/credential-provider-http/-/credential-provider-http-3.972.84.tgz#5242eba5cb02e3b7a1278b5584939d5b7f31c604"
@@ -216,6 +255,19 @@
     "@smithy/fetch-http-handler" "^5.8.0"
     "@smithy/node-http-handler" "^4.14.0"
     "@smithy/types" "^4.19.0"
+    tslib "^2.6.2"
+
+"@aws-sdk/credential-provider-http@^3.972.86":
+  version "3.972.86"
+  resolved "https://registry.npmjs.org/@aws-sdk/credential-provider-http/-/credential-provider-http-3.972.86.tgz#e40ecc0ba3df87aea13a608f7911b4d35cd92793"
+  integrity sha512-U4mHaDRPWAn63yhl7FXIzbppNmW1F+4dSLeuiUpej2v3Xb6rGwvayEJ8SdlrdMV+/mZtd+GStTEP2HqurEzXtw==
+  dependencies:
+    "@aws-sdk/core" "^3.981.0"
+    "@aws-sdk/types" "^3.975.1"
+    "@smithy/core" "^3.40.0"
+    "@smithy/fetch-http-handler" "^5.8.1"
+    "@smithy/node-http-handler" "^4.14.2"
+    "@smithy/types" "^4.20.0"
     tslib "^2.6.2"
 
 "@aws-sdk/credential-provider-ini@^3.973.27":
@@ -237,6 +289,25 @@
     "@smithy/types" "^4.19.0"
     tslib "^2.6.2"
 
+"@aws-sdk/credential-provider-ini@^3.973.30":
+  version "3.973.30"
+  resolved "https://registry.npmjs.org/@aws-sdk/credential-provider-ini/-/credential-provider-ini-3.973.30.tgz#6dc210a32f4e5c49e80254fa7d03ebc3a2a26286"
+  integrity sha512-r6r6499GWoGN943NA5YEhBEQ6TEOGTf7tTOBhHd/zw0UbNvSzd1/zPCNcDkPmRarA+e24X7KgxutqxjoWcskBg==
+  dependencies:
+    "@aws-sdk/core" "^3.981.0"
+    "@aws-sdk/credential-provider-env" "^3.972.84"
+    "@aws-sdk/credential-provider-http" "^3.972.86"
+    "@aws-sdk/credential-provider-login" "^3.972.92"
+    "@aws-sdk/credential-provider-process" "^3.972.84"
+    "@aws-sdk/credential-provider-sso" "^3.973.28"
+    "@aws-sdk/credential-provider-web-identity" "^3.972.90"
+    "@aws-sdk/nested-clients" "^3.998.3"
+    "@aws-sdk/types" "^3.975.1"
+    "@smithy/core" "^3.40.0"
+    "@smithy/credential-provider-imds" "^4.5.2"
+    "@smithy/types" "^4.20.0"
+    tslib "^2.6.2"
+
 "@aws-sdk/credential-provider-login@^3.972.89":
   version "3.972.89"
   resolved "https://registry.npmjs.org/@aws-sdk/credential-provider-login/-/credential-provider-login-3.972.89.tgz#c189c34544bea14590f4d4553570385a9906d580"
@@ -247,6 +318,35 @@
     "@aws-sdk/types" "^3.975.0"
     "@smithy/core" "^3.38.0"
     "@smithy/types" "^4.19.0"
+    tslib "^2.6.2"
+
+"@aws-sdk/credential-provider-login@^3.972.92":
+  version "3.972.92"
+  resolved "https://registry.npmjs.org/@aws-sdk/credential-provider-login/-/credential-provider-login-3.972.92.tgz#0e71d6a0dbe061021e907ca2d3adc560ed6a7f27"
+  integrity sha512-96bcp9Pe/Xd60OEwncZ+kAQTQSu+fJnpUGz1qE6ghF5jnETmrk8XMU86mIP3lolvnCgR61XbZ+Ht6hdBjiQOmQ==
+  dependencies:
+    "@aws-sdk/core" "^3.981.0"
+    "@aws-sdk/nested-clients" "^3.998.3"
+    "@aws-sdk/types" "^3.975.1"
+    "@smithy/core" "^3.40.0"
+    "@smithy/types" "^4.20.0"
+    tslib "^2.6.2"
+
+"@aws-sdk/credential-provider-node@^3.972.80":
+  version "3.972.97"
+  resolved "https://registry.npmjs.org/@aws-sdk/credential-provider-node/-/credential-provider-node-3.972.97.tgz#7d1e2da0d88acd3e78c839b8cf86fc3e02e54967"
+  integrity sha512-E4a0IXXJVsIdo/K9roX4JAEfI0JJr7KTPymkbKgETRDqEcLygE4ZlLTe24+7Qkh8Dl5YpnPd+Tt0DOPJDFXIwA==
+  dependencies:
+    "@aws-sdk/credential-provider-env" "^3.972.84"
+    "@aws-sdk/credential-provider-http" "^3.972.86"
+    "@aws-sdk/credential-provider-ini" "^3.973.30"
+    "@aws-sdk/credential-provider-process" "^3.972.84"
+    "@aws-sdk/credential-provider-sso" "^3.973.28"
+    "@aws-sdk/credential-provider-web-identity" "^3.972.90"
+    "@aws-sdk/types" "^3.975.1"
+    "@smithy/core" "^3.40.0"
+    "@smithy/credential-provider-imds" "^4.5.2"
+    "@smithy/types" "^4.20.0"
     tslib "^2.6.2"
 
 "@aws-sdk/credential-provider-node@^3.972.94":
@@ -277,6 +377,17 @@
     "@smithy/types" "^4.19.0"
     tslib "^2.6.2"
 
+"@aws-sdk/credential-provider-process@^3.972.84":
+  version "3.972.84"
+  resolved "https://registry.npmjs.org/@aws-sdk/credential-provider-process/-/credential-provider-process-3.972.84.tgz#015760ee4fc339c07e731054fabd29c803940f5f"
+  integrity sha512-199C6OpNejd0nq9GFAkEFIKids1FL0R6LJtL9c1OTiDOXki7S1OduuPxW4+hE0LwndcYJ7YHOuYTlqScfpCocA==
+  dependencies:
+    "@aws-sdk/core" "^3.981.0"
+    "@aws-sdk/types" "^3.975.1"
+    "@smithy/core" "^3.40.0"
+    "@smithy/types" "^4.20.0"
+    tslib "^2.6.2"
+
 "@aws-sdk/credential-provider-sso@^3.973.26":
   version "3.973.26"
   resolved "https://registry.npmjs.org/@aws-sdk/credential-provider-sso/-/credential-provider-sso-3.973.26.tgz#c03961bbe4033f9d0a8b53632193777b762b7d6c"
@@ -290,6 +401,19 @@
     "@smithy/types" "^4.19.0"
     tslib "^2.6.2"
 
+"@aws-sdk/credential-provider-sso@^3.973.28":
+  version "3.973.28"
+  resolved "https://registry.npmjs.org/@aws-sdk/credential-provider-sso/-/credential-provider-sso-3.973.28.tgz#f50ba7ae0efa1910f81c28a9c896fc55b2b92fcd"
+  integrity sha512-bGg7wH8wVDJQIcJggO9lg1ZYbG7l+PbLwHuM3Bi/e1TlCZhU712JS1W3tdRpyptdJD1UGyhBNGO/YrhrQCHKbg==
+  dependencies:
+    "@aws-sdk/core" "^3.981.0"
+    "@aws-sdk/nested-clients" "^3.998.3"
+    "@aws-sdk/token-providers" "3.1166.0"
+    "@aws-sdk/types" "^3.975.1"
+    "@smithy/core" "^3.40.0"
+    "@smithy/types" "^4.20.0"
+    tslib "^2.6.2"
+
 "@aws-sdk/credential-provider-web-identity@^3.972.88":
   version "3.972.88"
   resolved "https://registry.npmjs.org/@aws-sdk/credential-provider-web-identity/-/credential-provider-web-identity-3.972.88.tgz#a8de6006e0c8b372ffd68d2230c6e7739473c4d0"
@@ -300,6 +424,18 @@
     "@aws-sdk/types" "^3.975.0"
     "@smithy/core" "^3.38.0"
     "@smithy/types" "^4.19.0"
+    tslib "^2.6.2"
+
+"@aws-sdk/credential-provider-web-identity@^3.972.90":
+  version "3.972.90"
+  resolved "https://registry.npmjs.org/@aws-sdk/credential-provider-web-identity/-/credential-provider-web-identity-3.972.90.tgz#c88d7733a0ab84fcc431570b3bf7a24d23ff8c6e"
+  integrity sha512-duLeE3xlf0viHeH+1RM4z5duR3b32BCZTWVMu+MbxFPjQBxy7hmIGEqt5hekuFPRuXoyhMovjNl+PNNsb5oiGQ==
+  dependencies:
+    "@aws-sdk/core" "^3.981.0"
+    "@aws-sdk/nested-clients" "^3.998.3"
+    "@aws-sdk/types" "^3.975.1"
+    "@smithy/core" "^3.40.0"
+    "@smithy/types" "^4.20.0"
     tslib "^2.6.2"
 
 "@aws-sdk/nested-clients@^3.998.1":
@@ -316,6 +452,20 @@
     "@smithy/types" "^4.19.0"
     tslib "^2.6.2"
 
+"@aws-sdk/nested-clients@^3.998.3":
+  version "3.998.3"
+  resolved "https://registry.npmjs.org/@aws-sdk/nested-clients/-/nested-clients-3.998.3.tgz#4eebf7babc999324b6d96fd872fd619985b2bc40"
+  integrity sha512-acHTTzMB13CU6dU4sxABYExMI3PQM2zStWH2MiUwJp/7QKTrLg2f7mbzSXoegW2kYOk2tdqQYagsZrWB8Xv7eA==
+  dependencies:
+    "@aws-sdk/core" "^3.981.0"
+    "@aws-sdk/signature-v4-multi-region" "^3.996.52"
+    "@aws-sdk/types" "^3.975.1"
+    "@smithy/core" "^3.40.0"
+    "@smithy/fetch-http-handler" "^5.8.1"
+    "@smithy/node-http-handler" "^4.14.2"
+    "@smithy/types" "^4.20.0"
+    tslib "^2.6.2"
+
 "@aws-sdk/signature-v4-multi-region@^3.996.51":
   version "3.996.51"
   resolved "https://registry.npmjs.org/@aws-sdk/signature-v4-multi-region/-/signature-v4-multi-region-3.996.51.tgz#ce073f9ba238dd96d7669814bd9392e9e93c40b5"
@@ -324,6 +474,16 @@
     "@aws-sdk/types" "^3.975.0"
     "@smithy/signature-v4" "^5.7.5"
     "@smithy/types" "^4.19.0"
+    tslib "^2.6.2"
+
+"@aws-sdk/signature-v4-multi-region@^3.996.52":
+  version "3.996.52"
+  resolved "https://registry.npmjs.org/@aws-sdk/signature-v4-multi-region/-/signature-v4-multi-region-3.996.52.tgz#c64da9de33fbb87c8e6d2e42bdcff6949f4d63b4"
+  integrity sha512-6W6SjGc8OXUhMzNxU1X922ghD+PP1XvzmCk5Scui0jaYsLezycMYR1RaLp5xTIOUrhTXyb4DnAbPr3fBgmdnzg==
+  dependencies:
+    "@aws-sdk/types" "^3.975.1"
+    "@smithy/signature-v4" "^5.7.5"
+    "@smithy/types" "^4.20.0"
     tslib "^2.6.2"
 
 "@aws-sdk/token-providers@3.1164.0":
@@ -338,6 +498,18 @@
     "@smithy/types" "^4.19.0"
     tslib "^2.6.2"
 
+"@aws-sdk/token-providers@3.1166.0":
+  version "3.1166.0"
+  resolved "https://registry.npmjs.org/@aws-sdk/token-providers/-/token-providers-3.1166.0.tgz#41c5b69ce790ae2accb44d6d37e0a5d5852108a5"
+  integrity sha512-ngJ8mxXqtQ9mnp7QV6TWKJCxkpjVfPWxKQSc2FYhCyCfOVFIGdFv7P+/RqVffFrJAorwBPpktnv32gNlcEgF4g==
+  dependencies:
+    "@aws-sdk/core" "^3.981.0"
+    "@aws-sdk/nested-clients" "^3.998.3"
+    "@aws-sdk/types" "^3.975.1"
+    "@smithy/core" "^3.40.0"
+    "@smithy/types" "^4.20.0"
+    tslib "^2.6.2"
+
 "@aws-sdk/types@^3.222.0", "@aws-sdk/types@^3.973.6", "@aws-sdk/types@^3.975.0":
   version "3.975.0"
   resolved "https://registry.npmjs.org/@aws-sdk/types/-/types-3.975.0.tgz#15fb614cf1877ee41c5f08edfd21818dc90edd1d"
@@ -346,12 +518,28 @@
     "@smithy/types" "^4.19.0"
     tslib "^2.6.2"
 
+"@aws-sdk/types@^3.974.4", "@aws-sdk/types@^3.975.1":
+  version "3.975.1"
+  resolved "https://registry.npmjs.org/@aws-sdk/types/-/types-3.975.1.tgz#7e3a704dddf4eb3918cc8ce9f01b38a2944b2284"
+  integrity sha512-7rGxUkCB2QPoQOeJmonmAICTN2zrH+fpmi1p4Iwu72lnxNaMhOgqcbpyddifnM1DBb19TWQ1u6z/XjkaFNEDWw==
+  dependencies:
+    "@smithy/types" "^4.20.0"
+    tslib "^2.6.2"
+
 "@aws-sdk/xml-builder@^3.972.42":
   version "3.972.42"
   resolved "https://registry.npmjs.org/@aws-sdk/xml-builder/-/xml-builder-3.972.42.tgz#24e4813520958f2a15aa40c01dc02687ae7f27a9"
   integrity sha512-smX8/gNP8Kjq+CWTBMZQLQ912vOQjiWExzwzvMO+eujPB5RY8IbtF0AGdUUXHKN7KoDWK9dIcuW0WG269kiP6w==
   dependencies:
     "@smithy/types" "^4.19.0"
+    tslib "^2.6.2"
+
+"@aws-sdk/xml-builder@^3.972.43":
+  version "3.972.43"
+  resolved "https://registry.npmjs.org/@aws-sdk/xml-builder/-/xml-builder-3.972.43.tgz#0061caee71406d7525c8e05f137550b8a2985535"
+  integrity sha512-rG8QVx4DOrJWptsogu1Aq+CDsnPKaBrAlJpKLxrJrIDXAq1ElnW0yQjjBnlWSXll0cDakCG6UDvaqwz0A9d9Og==
+  dependencies:
+    "@smithy/types" "^4.20.0"
     tslib "^2.6.2"
 
 "@aws/lambda-invoke-store@^0.3.0":
@@ -919,27 +1107,27 @@
   resolved "https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.68.0.tgz#3d82b1bb57754a15cd05a5223189cdd3e6e96bcd"
   integrity sha512-e/NRJFl48wL5DFNSzQrvm4kaB5dzNNmqWjIJ6And2Sjuw4klO3w3TXMvCAEF1tHTrQQgpOD4QVkBE/92/yBGrQ==
 
-"@smart-cloud/aws-amplify-ui-react-core@3.6.7":
-  version "3.6.7"
-  resolved "https://registry.npmjs.org/@smart-cloud/aws-amplify-ui-react-core/-/aws-amplify-ui-react-core-3.6.7.tgz#7ebdbcee1a94dd5b24c92b00ef1b47d8c97ad7f5"
-  integrity sha512-zxyq6zl+IAXBRNnsihdk9TBw8QueHEILDfWxCjxp5fXguaMYXeI0zIrNay3JVLxPhgKKQTEtCFr0wvQRcWbi7w==
+"@smart-cloud/aws-amplify-ui-react-core@3.6.8-smart-cloud.0":
+  version "3.6.8-smart-cloud.0"
+  resolved "https://registry.npmjs.org/@smart-cloud/aws-amplify-ui-react-core/-/aws-amplify-ui-react-core-3.6.8-smart-cloud.0.tgz#4f1719224a5d8b13620259dd7a69aaa86e0c82d8"
+  integrity sha512-HX20vBTbvLvlqocbd81G+/mHlqU+ajw9ufCpxpnvkc8DDgVCX2Fc/ENNzb3If2z5R2ZxcAVyi5H0zBcjRxT8Kg==
   dependencies:
-    "@smart-cloud/aws-amplify-ui" "6.15.7"
+    "@smart-cloud/aws-amplify-ui" "6.15.8-smart-cloud.0"
     "@xstate/react" "^3.2.2"
     lodash "4.18.1"
     react-hook-form "7.53.2"
     xstate "^4.33.6"
 
-"@smart-cloud/aws-amplify-ui-react@6.15.7":
-  version "6.15.7"
-  resolved "https://registry.npmjs.org/@smart-cloud/aws-amplify-ui-react/-/aws-amplify-ui-react-6.15.7.tgz#a04dabf132bebe2e8fffa130082fbdca58f7a1e1"
-  integrity sha512-dVA6yFLnaAEFg3TaU0taifENcqk6tGTxKtO/ArdRjjz/iNP7v3sEGecpNXqHGQx52sV6MUyRDgctwwqQyWAaeQ==
+"@smart-cloud/aws-amplify-ui-react@6.15.8-smart-cloud.0":
+  version "6.15.8-smart-cloud.0"
+  resolved "https://registry.npmjs.org/@smart-cloud/aws-amplify-ui-react/-/aws-amplify-ui-react-6.15.8-smart-cloud.0.tgz#1925ee1b07379458862188fc281585abead64eb2"
+  integrity sha512-1sIcAodKr0UHJJyTorNbK2+21Jkun4MImor3bjehOJF+fw2oyht/va6eSQktKriuh56fzeRVMt2lJtIGddX8aQ==
   dependencies:
     "@radix-ui/react-direction" "^1.1.0"
     "@radix-ui/react-dropdown-menu" "^2.1.10"
     "@radix-ui/react-slider" "^1.3.2"
-    "@smart-cloud/aws-amplify-ui" "6.15.7"
-    "@smart-cloud/aws-amplify-ui-react-core" "3.6.7"
+    "@smart-cloud/aws-amplify-ui" "6.15.8-smart-cloud.0"
+    "@smart-cloud/aws-amplify-ui-react-core" "3.6.8-smart-cloud.0"
     "@xstate/react" "^3.2.2"
     country-data-list "^1.6.0"
     country-flag-icons "^1.6.13"
@@ -947,14 +1135,22 @@
     qrcode "1.5.0"
     tslib "^2.5.2"
 
-"@smart-cloud/aws-amplify-ui@6.15.7":
-  version "6.15.7"
-  resolved "https://registry.npmjs.org/@smart-cloud/aws-amplify-ui/-/aws-amplify-ui-6.15.7.tgz#b12be3734b3b75d1c7e7c7815b622507c1dd0b2d"
-  integrity sha512-9F2Q4yNEFMc6TyZW74HJdBLiekb/b+yVS4zI5MTc+YQDOnChML2+XDhEZZHWKMG9opV7T58oAASWhukHY3Hp5A==
+"@smart-cloud/aws-amplify-ui@6.15.8-smart-cloud.0":
+  version "6.15.8-smart-cloud.0"
+  resolved "https://registry.npmjs.org/@smart-cloud/aws-amplify-ui/-/aws-amplify-ui-6.15.8-smart-cloud.0.tgz#12f322dd6f53c9dddfe43aa156daf083d105e118"
+  integrity sha512-SsrDooRbPjjHeimk9iSWYYHjvwza1x8d3JW2Ds5HNW0fVha1VMgssKM8RE/M1+3DeIgg74fLIqMq+n/TUHkEnQ==
   dependencies:
     csstype "^3.1.1"
     lodash "4.18.1"
     tslib "^2.5.2"
+
+"@smithy/core@^3.31.1", "@smithy/core@^3.40.0":
+  version "3.40.0"
+  resolved "https://registry.npmjs.org/@smithy/core/-/core-3.40.0.tgz#be97dc3dc123d5acadad5b36a34c1f81e596fb34"
+  integrity sha512-DssGno52pzZ5m6RlDtyKuBIpZNPg9pqgs0CnNDKz9IatxCsmvNmJNn5Zn6rf77MthZo9wf89OvZFhTY/RwxhxQ==
+  dependencies:
+    "@smithy/types" "^4.20.0"
+    tslib "^2.6.2"
 
 "@smithy/core@^3.33.2", "@smithy/core@^3.38.0", "@smithy/core@^3.39.0":
   version "3.39.0"
@@ -973,7 +1169,7 @@
     "@smithy/types" "^4.17.2"
     tslib "^2.6.2"
 
-"@smithy/fetch-http-handler@^5.8.0":
+"@smithy/fetch-http-handler@^5.6.13", "@smithy/fetch-http-handler@^5.8.0", "@smithy/fetch-http-handler@^5.8.1":
   version "5.8.1"
   resolved "https://registry.npmjs.org/@smithy/fetch-http-handler/-/fetch-http-handler-5.8.1.tgz#96679083b3174a3628eac8ceb1188e6a8aa882ff"
   integrity sha512-h8BdMUrUBhMhMaeK7QqAdINRZezCGuYOCpcOZZ1ewxbHST9rdTd09xwNpvLTYfzDRehxQiReK4SKbdYZxBA+ew==
@@ -1005,7 +1201,7 @@
     "@smithy/util-utf8" "^2.0.0"
     tslib "^2.5.0"
 
-"@smithy/node-http-handler@^4.14.0":
+"@smithy/node-http-handler@^4.14.0", "@smithy/node-http-handler@^4.14.2", "@smithy/node-http-handler@^4.9.13":
   version "4.14.2"
   resolved "https://registry.npmjs.org/@smithy/node-http-handler/-/node-http-handler-4.14.2.tgz#b3b44ed33af388322f13a1fd48694d1f9d490507"
   integrity sha512-i1uORV1v3qBqP43ayRKzIdm1q5x14tf8N4Dd06/QUX1Szm6VxHMrTsu20X5E63UFsaNZCRjI4SXG0jDmqYa+3w==
@@ -1037,7 +1233,7 @@
   dependencies:
     tslib "^2.6.2"
 
-"@smithy/types@^4.17.2", "@smithy/types@^4.19.0", "@smithy/types@^4.20.0":
+"@smithy/types@^4.16.1", "@smithy/types@^4.17.2", "@smithy/types@^4.19.0", "@smithy/types@^4.20.0":
   version "4.20.0"
   resolved "https://registry.npmjs.org/@smithy/types/-/types-4.20.0.tgz#20dee95d543f7c89682fbe73c765f5f0ef3a2c12"
   integrity sha512-lCA6QG22dPk9ecHbv91jDQZsmtPUjdS1aE2Il6NNPqe7DrYc0dZQi6DhcESk2KYXH2sp5xbAcGdYMZDFnuzA2A==
