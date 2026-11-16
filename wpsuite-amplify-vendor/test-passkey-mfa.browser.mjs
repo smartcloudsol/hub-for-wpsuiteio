@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const vendor = path.dirname(fileURLToPath(import.meta.url));
 const workspace = path.resolve(vendor, '../..');
 const { build } = createRequire(path.join(vendor, 'package.json'))('esbuild');
-const { chromium } = createRequire(path.join(workspace, 'console/package.json'))('playwright');
+const { chromium } = createRequire(process.env.PLAYWRIGHT_PACKAGE_JSON || path.join(workspace, 'console/package.json'))('playwright');
 const bundle = path.resolve(process.argv[2] || path.join(vendor, 'dist/amplify-vendor.min.js'));
 const dir = await mkdtemp(path.join(tmpdir(), 'passkey-mfa-browser-'));
 let browser;
@@ -22,16 +22,16 @@ try {
     window.fixtureHasPasskey=!new URLSearchParams(location.search).has('empty');
     A.Amplify.configure({Auth:{Cognito:{userPoolId:'eu-central-1_fixture',userPoolClientId:'fixtureclient',identityPoolId:'eu-central-1:11111111-1111-1111-1111-111111111111'}}});
     const R=window.React;
-    window.mount=(missing=false)=>{ if(missing) window.WpSuiteAmplify={...A,getWebAuthnMfaCapability:undefined}; window.ReactDOM.createRoot(document.getElementById('root')).render(R.createElement(R.StrictMode,null,R.createElement(A.Authenticator.Provider,null,R.createElement(A.Authenticator,{initialState:new URLSearchParams(location.search).has('totp')?'setupTotp':'passkeySettings',forceInitialState:true,services:{...createGateyWebAuthnMfaServices(),handleAssociateWebAuthnCredential:async()=>{window.fixtureHasPasskey=true;}}})))); };
+    window.mount=(missing=false)=>{ if(missing) window.WpSuiteAmplify={...A,getWebAuthnMfaCapability:undefined}; (window.fixtureRoot=window.ReactDOM.createRoot(document.getElementById('root'))).render(R.createElement(R.StrictMode,null,R.createElement(A.Authenticator.Provider,null,R.createElement(A.Authenticator,{initialState:new URLSearchParams(location.search).has('totp')?'setupTotp':'passkeySettings',forceInitialState:true,services:{...createGateyWebAuthnMfaServices(),handleAssociateWebAuthnCredential:async()=>{window.fixtureHasPasskey=true;}}})))); };
     window.mount(new URLSearchParams(location.search).has('missing'));
   `, resolveDir:vendor },bundle:true,platform:'browser',format:'iife',minify:true, plugins:[{name:'fixture-externals',setup(b){ b.onResolve({filter:/^(aws-amplify|@smart-cloud\/wpsuite-core)$/}, args=>({path:args.path,namespace:'fixture'})); b.onLoad({filter:/.*/,namespace:'fixture'}, args=>({contents:args.path==='aws-amplify' ? 'module.exports=window.WpSuiteAmplify' : 'exports.getBackendProfileContext=()=>window.fixtureProfile; exports.assertBackendProfileCurrent=()=>{}'})); }}],outfile:path.join(dir,'fixture.js') });
   browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
   const results=[];
-  for (const mode of ['supported','unsupported','denied','missing','changed','empty','remove','no-totp','totp']) {
+  for (const mode of ['supported','unsupported','denied','missing','changed','empty','remove','no-totp','totp','on','unknown','readfail','cancel']) {
     const page=await browser.newPage();
     page.setDefaultTimeout(8000);
     const events=[], errors=[];
-    let failFirst=true, hasTotp=mode!=='no-totp' && mode!=='totp', hasPasskey=mode!=='empty';
+    let reads=0, failFirst=true, enabled=mode==='on', hasTotp=mode!=='no-totp' && mode!=='totp', hasPasskey=mode!=='empty';
     page.on('pageerror',e=>errors.push(e.name));
     await page.addInitScript(() => {
       const enc = obj => btoa(JSON.stringify(obj)).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
@@ -65,17 +65,20 @@ try {
           if(mode==='denied') return route.fulfill({status:400,json:{__type:'AccessDeniedException',message:'Synthetic denial'}});
           return route.fulfill({json:{MfaConfiguration:'OPTIONAL',WebAuthnConfiguration:{FactorConfiguration:mode==='unsupported'?'SINGLE_FACTOR':'MULTI_FACTOR_WITH_USER_VERIFICATION',UserVerification:'preferred'}}});
         }
-        if(operation==='GetUser') { events.push({operation}); return route.fulfill({json:{Username:'fixture',UserAttributes:[{Name:'sub',Value:'synthetic-sub'}],UserMFASettingList:hasTotp?['SOFTWARE_TOKEN_MFA']:[],...(hasTotp?{PreferredMfaSetting:'SOFTWARE_TOKEN_MFA'}:{})}}); }
+        if(operation==='GetUser') { events.push({operation}); reads++; if(mode==='cancel' && reads>1) { await page.evaluate(()=>window.fixtureRoot.unmount()); await new Promise(resolve=>setTimeout(resolve,200)); } if(mode==='readfail') return route.fulfill({status:400,json:{__type:'AccessDeniedException'}}); return route.fulfill({json:{Username:'fixture',UserAttributes:[{Name:'sub',Value:'synthetic-sub'}],UserMFASettingList:[...(hasTotp?['SOFTWARE_TOKEN_MFA']:[]),...(enabled?['WEB_AUTHN_MFA']:[]),...(mode==='unknown'?['FUTURE_MFA']:[])],...(hasTotp?{PreferredMfaSetting:'SOFTWARE_TOKEN_MFA'}:{})}}); }
         if(operation==='ListWebAuthnCredentials') {events.push({operation}); hasPasskey=hasPasskey || await page.evaluate(()=>window.fixtureHasPasskey); return route.fulfill({json:{Credentials:hasPasskey?[{CredentialId:'fixture-credential',FriendlyCredentialName:'Fixture passkey',CreatedAt:1700000000,RelyingPartyId:'fixture.test',AuthenticatorAttachment:'PLATFORM',AuthenticatorTransports:['INTERNAL']}]:[]}});}
         if(operation==='DeleteWebAuthnCredential') {events.push({operation}); hasPasskey=false; await page.evaluate(()=>{window.fixtureHasPasskey=false;}); return route.fulfill({json:{}});}
         if(operation==='AssociateSoftwareToken') {events.push({operation}); return route.fulfill({json:{SecretCode:'JBSWY3DPEHPK3PXP'}});}
         if(operation==='VerifySoftwareToken') {events.push({operation}); return route.fulfill({json:{Status:'SUCCESS'}});}
         if(operation==='SetUserMFAPreference') {
           if(mode==='totp' && body.SoftwareTokenMfaSettings) { assert.deepEqual(Object.keys(body).sort(),['AccessToken','SoftwareTokenMfaSettings']); events.push({operation:'SetTotpPreference'}); hasTotp=true; return route.fulfill({json:{}}); }
-          assert.deepEqual(Object.keys(body).sort(),['AccessToken','WebAuthnMfaSettings']);
+          assert.deepEqual(Object.keys(body).sort(),['AccessToken','SoftwareTokenMfaSettings','WebAuthnMfaSettings']);
+          assert.deepEqual(body.SoftwareTokenMfaSettings,{Enabled:true,PreferredMfa:true});
+          assert.equal(events.at(-1)?.operation,'GetUser');
           assert.deepEqual(Object.keys(body.WebAuthnMfaSettings),['Enabled']);
           events.push({operation,enabled:body.WebAuthnMfaSettings.Enabled});
           if(failFirst) {failFirst=false;return route.fulfill({status:400,json:{__type:'InvalidParameterException',message:'Synthetic failure'}});}
+          enabled=body.WebAuthnMfaSettings.Enabled;
           return route.fulfill({json:{}});
         }
       }
@@ -87,13 +90,27 @@ try {
     const enable=page.getByRole('button',{name:'Enable passkey MFA'});
     if(mode==='supported') {
       await enable.waitFor(); await enable.isEnabled().then(assert.ok);
+      await page.getByText('Passkey MFA is disabled.',{exact:true}).waitFor();
       assert.equal(events.filter(e=>e.operation==='SetUserMFAPreference').length,0);
       await enable.click();
       await page.getByText(/could not|unable|failed/i).first().waitFor();
       await enable.click();
+      await page.getByText('Passkey MFA is enabled.',{exact:true}).waitFor();
       await page.getByRole('button',{name:'Disable passkey MFA'}).click();
-      await page.waitForTimeout(300);
+      await page.getByText('Passkey MFA is disabled.',{exact:true}).waitFor();
       assert.deepEqual(events.filter(e=>e.operation==='SetUserMFAPreference').map(e=>e.enabled),[true,true,false]);
+    } else if(mode==='cancel') {
+      await enable.waitFor(); await enable.click(); await page.waitForTimeout(500);
+      assert.ok(reads>1); assert.equal(events.filter(e=>e.operation==='SetUserMFAPreference').length,0);
+    } else if(mode==='on') {
+      await page.getByRole('button',{name:'Disable passkey MFA'}).waitFor();
+      await page.getByText('Passkey MFA is enabled.',{exact:true}).waitFor();
+      assert.equal(events.filter(e=>e.operation==='SetUserMFAPreference').length,0);
+    } else if(mode==='unknown' || mode==='readfail') {
+      await page.waitForTimeout(500);
+      assert.equal(events.filter(e=>e.operation==='SetUserMFAPreference').length,0);
+      await page.getByText('The current passkey MFA setting is unknown.').waitFor();
+      if(mode==='unknown') { await enable.click(); await page.getByText(/could not|unable|failed/i).first().waitFor(); assert.equal(events.filter(e=>e.operation==='SetUserMFAPreference').length,0); }
     } else if(mode==='empty') {
       await enable.waitFor(); assert.equal(await enable.isEnabled(),false);
       await page.getByRole('button',{name:'Add a passkey'}).click();
