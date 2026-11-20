@@ -31,7 +31,7 @@ if (
 }
 
 const VERSION_WEBCRYPTO = '1.1.8';
-const VERSION_AMPLIFY = '1.1.18';
+const VERSION_AMPLIFY = '1.1.19';
 const VERSION_MANTINE = '1.0.8';
 const WPSUITE_CUSTOM_CSS_STYLESHEET = 'smartcloud-wpsuiteio-theme';
 const WPSUITE_CUSTOM_CSS_SECTION = 'smartcloud_wpsuiteio_theme_css';
@@ -56,6 +56,15 @@ function amplifyVendorDigest(string $assetPath): string
         return $matches[1];
     }
     return hash_file('sha256', $assetPath);
+}
+
+function amplifyFrontendUiUrl(): ?string
+{
+    $ui = 'assets/js/amplify-ui.min.js';
+    if (!is_file(SMARTCLOUD_WPSUITE_PATH . $ui) || !is_file(SMARTCLOUD_WPSUITE_PATH . 'assets/js/amplify-sdk.min.js')) {
+        return null;
+    }
+    return add_query_arg('ver', VERSION_AMPLIFY, SMARTCLOUD_WPSUITE_URL . $ui);
 }
 
 class HubAdmin
@@ -478,21 +487,50 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
      */
     public function enqueueScripts(): void
     {
+        $scriptArgs = array('in_footer' => true, 'strategy' => 'defer');
         wp_register_script(
             'smartcloud-wpsuite-webcrypto-vendor',
             SMARTCLOUD_WPSUITE_URL . 'assets/js/webcrypto-vendor.min.js',
             array(),
-            \SmartCloud\WPSuite\Hub\VERSION_WEBCRYPTO,
-            array('in_footer' => true, 'strategy' => 'defer')
+            VERSION_WEBCRYPTO,
+            $scriptArgs
+        );
+        // The frontend configuration reader returns before importing JOSE
+        // on sites without a subscription. Keep the full handle available
+        // for callers that explicitly need the crypto runtime.
+        wp_register_script(
+            'smartcloud-wpsuite-config-crypto',
+            false,
+            $this->siteSettings->subscriber ? array('smartcloud-wpsuite-webcrypto-vendor') : array(),
+            VERSION_WEBCRYPTO,
+            true
         );
 
-        wp_register_script(
-            'smartcloud-wpsuite-amplify-vendor',
-            SMARTCLOUD_WPSUITE_URL . 'assets/js/amplify-vendor.min.js',
-            array("react", "react-dom", "react-jsx-runtime"),
-            \SmartCloud\WPSuite\Hub\VERSION_AMPLIFY . '-' . substr(amplifyVendorDigest(SMARTCLOUD_WPSUITE_PATH . 'assets/js/amplify-vendor.min.js'), 0, 16),
-            array('in_footer' => true, 'strategy' => 'defer')
-        );
+        $react = array('react', 'react-dom', 'react-jsx-runtime');
+        if (!is_admin() && amplifyFrontendUiUrl() !== null) {
+            wp_register_script(
+                'smartcloud-wpsuite-amplify-sdk',
+                SMARTCLOUD_WPSUITE_URL . 'assets/js/amplify-sdk.min.js',
+                $react,
+                VERSION_AMPLIFY,
+                $scriptArgs
+            );
+            wp_register_script(
+                'smartcloud-wpsuite-amplify-vendor',
+                SMARTCLOUD_WPSUITE_URL . 'assets/js/amplify-ui.min.js',
+                array('smartcloud-wpsuite-amplify-sdk'),
+                VERSION_AMPLIFY,
+                $scriptArgs
+            );
+        } else {
+            wp_register_script(
+                'smartcloud-wpsuite-amplify-vendor',
+                SMARTCLOUD_WPSUITE_URL . 'assets/js/amplify-vendor.min.js',
+                $react,
+                VERSION_AMPLIFY . '-' . substr(amplifyVendorDigest(SMARTCLOUD_WPSUITE_PATH . 'assets/js/amplify-vendor.min.js'), 0, 16),
+                $scriptArgs
+            );
+        }
 
         wp_register_script(
             'smartcloud-wpsuite-mantine-vendor',

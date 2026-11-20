@@ -12,6 +12,7 @@ const requireVendor = createRequire(path.join(vendor, "package.json"));
 const { build } = requireVendor("esbuild");
 const { chromium } = createRequire(path.join(workspace, "console/package.json"))("playwright");
 const bundle = path.resolve(process.argv.slice(2).find(arg => !arg.startsWith("--")) || path.join(vendor, "dist/amplify-vendor.min.js"));
+const sdk = process.argv.find(arg => arg.startsWith("--sdk="))?.slice("--sdk=".length);
 const expectMissing = process.argv.includes("--expect-missing");
 const defaultHandler = process.argv.includes("--default-handler");
 const email = process.argv.includes("--email");
@@ -55,13 +56,18 @@ try {
   page.setDefaultTimeout(10000);
   const requests = [], errors = [];
   page.on("pageerror", error => errors.push(error.message));
+  page.on("console", message => {
+    if (message.type() === "error" && !message.text().startsWith("Failed to load resource")) errors.push(message.text());
+  });
   await page.route("**/*", async route => {
     const request = route.request(), url = new URL(request.url());
     if (url.hostname === "fixture.test") {
       const assets = { "/react.js": path.join(temp,"react.js"), "/vendor.js": bundle, "/fixture.js": path.join(temp,"fixture.js") };
+      if (sdk) assets["/sdk.js"] = sdk;
+      const initialSdk = sdk ? '<script src="/sdk.js"></script><script>window.initialAmplify = window.WpSuiteAmplify; window.hadUiBeforeLoad = !!window.WpSuiteAmplify.Authenticator;</script>' : '';
       return route.fulfill(assets[url.pathname]
         ? { body: await readFile(assets[url.pathname]), contentType: "text/javascript" }
-        : { body: '<!doctype html><div id="root"></div><script src="/react.js"></script><script src="/vendor.js"></script><script src="/fixture.js"></script>', contentType: "text/html" });
+        : { body: '<!doctype html><div id="root"></div><script src="/react.js"></script>' + initialSdk + '<script src="/vendor.js"></script><script src="/fixture.js"></script>', contentType: "text/html" });
     }
     if (url.hostname === "cognito-idp.eu-central-1.amazonaws.com") {
       const operation = request.headers()["x-amz-target"]?.split(".").at(-1);
@@ -83,8 +89,21 @@ try {
     throw new Error(`Unexpected transport ${url.origin}${url.pathname}`);
   });
   await page.goto("https://fixture.test/");
+  if (sdk) {
+    assert.deepEqual(await page.evaluate(() => {
+      const vendor = window.WpSuiteAmplify;
+      return {
+        sameObject: window.initialAmplify === vendor,
+        initialUi: window.hadUiBeforeLoad,
+        sameAmplify: vendor.Amplify === vendor.uiDependencies["aws-amplify"].Amplify,
+        sameHub: vendor.Hub === vendor.uiDependencies["@aws-amplify/core"].Hub,
+        sameAuth: vendor.fetchAuthSession === vendor.uiDependencies["aws-amplify/auth"].fetchAuthSession,
+      };
+    }), { sameObject: true, initialUi: false, sameAmplify: true, sameHub: true, sameAuth: true });
+  }
   const exports = await page.evaluate(() => window.authExports);
   assert.deepEqual(exports, Object.fromEntries(["confirmSignIn", "rememberDevice", "forgetDevice"].map(name => [name, expectMissing ? "undefined" : "function"])));
+  assert.deepEqual(errors, []);
   await page.getByRole("textbox", {name:"Username",exact:true}).fill("fixture");
   await page.getByLabel("Password",{exact:true}).fill("SyntheticOnly123!");
   await page.getByRole("button",{name:"Sign in",exact:true}).click();

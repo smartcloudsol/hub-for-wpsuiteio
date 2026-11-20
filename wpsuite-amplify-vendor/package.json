@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist/amplify-vendor.min.js",
   "scripts": {
-    "build": "tsup --minify",
+    "build": "tsup --minify && node build-frontend.mjs",
     "test": "node test-jsx-runtime.mjs && node test-digest.mjs && node test-capability.mjs",
     "test:exports": "node test-export-surface.mjs",
     "test:browser": "node test-authenticator.browser.mjs"

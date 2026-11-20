@@ -12,17 +12,26 @@ const args = process.argv.slice(2);
 assert.ok(args.length === 0 || (args.length === 2 && args[0] === '--vendor-entry'), 'Usage: node test-export-surface.mjs [--vendor-entry path]');
 const entry = args.length ? resolve(args[1]) : join(here, 'src/index.ts');
 const parse = (file, text) => ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-const vendor = parse(entry, readFileSync(entry, 'utf8'));
 const exports = new Set();
-for (const node of vendor.statements) {
-  if (ts.isExportDeclaration(node) && !node.isTypeOnly && node.exportClause && ts.isNamedExports(node.exportClause)) {
-    for (const item of node.exportClause.elements) if (!item.isTypeOnly) exports.add(item.name.text);
-  } else if (node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword)) {
-    if (node.modifiers.some(m => m.kind === ts.SyntaxKind.DefaultKeyword)) exports.add('default');
-    if (node.name && (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node) || ts.isEnumDeclaration(node))) exports.add(node.name.text);
-    if (ts.isVariableStatement(node)) for (const declaration of node.declarationList.declarations) if (ts.isIdentifier(declaration.name)) exports.add(declaration.name.text);
+const visited = new Set();
+function readExports(file) {
+  if (visited.has(file)) return;
+  visited.add(file);
+  for (const node of parse(file, readFileSync(file, 'utf8')).statements) {
+    if (ts.isExportDeclaration(node) && !node.isTypeOnly) {
+      if (node.exportClause && ts.isNamedExports(node.exportClause)) {
+        for (const item of node.exportClause.elements) if (!item.isTypeOnly) exports.add(item.name.text);
+      } else if (node.moduleSpecifier?.text.startsWith('.')) {
+        readExports(resolve(dirname(file), node.moduleSpecifier.text + '.ts'));
+      }
+    } else if (node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword)) {
+      if (node.modifiers.some(m => m.kind === ts.SyntaxKind.DefaultKeyword)) exports.add('default');
+      if (node.name && (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node) || ts.isEnumDeclaration(node))) exports.add(node.name.text);
+      if (ts.isVariableStatement(node)) for (const declaration of node.declarationList.declarations) if (ts.isIdentifier(declaration.name)) exports.add(declaration.name.text);
+    }
   }
 }
+readExports(entry);
 function walk(dir, visit) {
   for (const item of readdirSync(dir, { withFileTypes: true })) {
     if (item.isDirectory()) { if (!ignored.has(item.name) && !item.name.startsWith('.')) walk(join(dir, item.name), visit); }

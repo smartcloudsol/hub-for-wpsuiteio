@@ -12,7 +12,9 @@ namespace {
     define('ABSPATH', $dir); define('SMARTCLOUD_WPSUITE_PATH', $dir . '/');
     define('SMARTCLOUD_WPSUITE_URL', 'https://example.test/'); define('SMARTCLOUD_WPSUITE_VERSION', 'test');
     define('SMARTCLOUD_WPSUITE_CANONICAL_SLUG', 'smartcloud-wpsuite'); define('SMARTCLOUD_WPSUITE_LEGACY_SLUG', 'smartcloud-wpsuiteio'); define('SMARTCLOUD_WPSUITE_READY_HOOK', 'smartcloud_wpsuite_ready');
-    $GLOBALS['registrations'] = array(); $GLOBALS['hooks'] = array(); $GLOBALS['enqueued'] = array(); $GLOBALS['versions'] = array();
+    $GLOBALS['registrations'] = array(); $GLOBALS['hooks'] = array(); $GLOBALS['enqueued'] = array(); $GLOBALS['versions'] = array(); $GLOBALS['test_admin'] = false;
+    function is_admin(): bool { return $GLOBALS['test_admin']; }
+    function add_query_arg($key, $value, $url): string { return $url . '?' . $key . '=' . $value; }
     function wp_register_script($handle, $url, $deps, ...$other): void { $GLOBALS['registrations'][$handle] = $deps; $GLOBALS['versions'][$handle] = $other[0] ?? null; }
     function wp_enqueue_script(...$args): void { $GLOBALS['enqueued'][$args[0]] = $args; } function wp_enqueue_style(...$args): void {}
     function wp_add_inline_script(...$args): void {} function wp_json_encode($v): string { return json_encode($v); }
@@ -24,6 +26,10 @@ namespace {
     $settingsProperty->setValue($hub, new SmartCloud\WPSuite\Hub\SiteSettings());
     $hub->enqueueScripts();
     if (isset($GLOBALS['enqueued']['smartcloud-wpsuite-main-script'])) throw new RuntimeException('Unconfigured main script was enqueued');
+    if (($GLOBALS['registrations']['smartcloud-wpsuite-config-crypto'] ?? null) !== array()) throw new RuntimeException('Unsubscribed frontend depends on licence crypto');
+    $settingsProperty->setValue($hub, new SmartCloud\WPSuite\Hub\SiteSettings(subscriber: true));
+    $hub->enqueueScripts();
+    if (($GLOBALS['registrations']['smartcloud-wpsuite-config-crypto'] ?? null) !== array('smartcloud-wpsuite-webcrypto-vendor')) throw new RuntimeException('Subscribed frontend lacks licence crypto');
     $settingsProperty->setValue($hub, new SmartCloud\WPSuite\Hub\SiteSettings(reCaptchaPublicKey: 'test-key', renderRecaptchaProvider: false));
     $hub->enqueueScripts();
     if (isset($GLOBALS['enqueued']['smartcloud-wpsuite-main-script'])) throw new RuntimeException('Disabled provider enqueued main script');
@@ -33,6 +39,18 @@ namespace {
     foreach (array('smartcloud-wpsuite-amplify-vendor', 'smartcloud-wpsuite-mantine-vendor') as $handle) {
         if (($GLOBALS['registrations'][$handle] ?? null) !== array('react', 'react-dom', 'react-jsx-runtime')) throw new RuntimeException('Missing frontend dependency: ' . $handle);
     }
+    file_put_contents($dir . '/assets/js/amplify-sdk.min.js', 'sdk');
+    file_put_contents($dir . '/assets/js/amplify-ui.min.js', 'ui');
+    $GLOBALS['registrations'] = array();
+    $hub->enqueueScripts();
+    if (($GLOBALS['registrations']['smartcloud-wpsuite-amplify-vendor'] ?? null) !== array('smartcloud-wpsuite-amplify-sdk')) throw new RuntimeException('Frontend UI does not share the SDK dependency');
+    if (($GLOBALS['registrations']['smartcloud-wpsuite-amplify-sdk'] ?? null) !== array('react', 'react-dom', 'react-jsx-runtime')) throw new RuntimeException('Frontend SDK did not register the React dependencies for optional UI');
+    $GLOBALS['test_admin'] = true;
+    $GLOBALS['registrations'] = array();
+    $hub->enqueueScripts();
+    if (isset($GLOBALS['registrations']['smartcloud-wpsuite-amplify-sdk'])) throw new RuntimeException('Admin switched to frontend SDK');
+    $GLOBALS['test_admin'] = false;
+    unlink($dir . '/assets/js/amplify-sdk.min.js'); unlink($dir . '/assets/js/amplify-ui.min.js');
     $first = SmartCloud\WPSuite\Hub\VERSION_MANTINE . '-' . substr(hash('sha256', 'mantine-first'), 0, 16);
     if ($GLOBALS['versions']['smartcloud-wpsuite-mantine-vendor'] !== $first) throw new RuntimeException('Frontend Mantine payload version mismatch');
     $GLOBALS['registrations'] = array(); $hub->enqueueAdminScripts('fixture');
