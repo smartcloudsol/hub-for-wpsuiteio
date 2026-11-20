@@ -260,6 +260,39 @@ reject(fn() => BackendProfiles::configure(['profileId' => 'production', 'expecte
 unset($GLOBALS['bootstrap_overrides']);
 echo "Production preview exact pairing, archival revision, stale jobs and namespace isolation PASS.\n";
 
+$developmentOld = $GLOBALS['options'][BackendProfiles::OPTION];
+$developmentRequest = ['profileId' => 'development', 'expectedGeneration' => 4, 'archiveDevelopmentBinding' => true,
+    'connection' => ['workspaceId' => 'test-workspace', 'accountId' => 'test-workspace', 'siteId' => 'test-deployment-site', 'siteKey' => 'other-synthetic-key']];
+reject(fn() => BackendProfiles::configure($developmentRequest), 'Active DEV binding could be archived');
+$GLOBALS['options'][BackendProfiles::OPTION]['active'] = 'production';
+(new ReflectionProperty(BackendProfiles::class, 'requestContext'))->setValue(null, ['id' => 'production', 'generation' => 4]);
+$unchangedProd = serialize($developmentOld['profiles']['production']);
+foreach (['archiveDevelopmentBinding', 'siteKey'] as $field) {
+    $invalid = $developmentRequest;
+    if ($field === 'siteKey') unset($invalid['connection'][$field]); else unset($invalid[$field]);
+    reject(fn() => BackendProfiles::configure($invalid), 'DEV migration accepted without explicit archival and a new key');
+}
+$GLOBALS['bootstrap_overrides'] = ['userPoolId' => 'eu-central-1_ChangedValidPool'];
+reject(fn() => BackendProfiles::configure($developmentRequest), 'DEV migration changed the Cognito identity');
+unset($GLOBALS['bootstrap_overrides']);
+$expectedDevIdentity = $developmentOld['profiles']['development']['identity'];
+BackendProfiles::setValidator(static function () use ($expectedDevIdentity): array {
+    check(BackendProfiles::captureContext()['identity'] === $expectedDevIdentity, 'Pending DEV licence request lost validated Cognito identity');
+    return ['jws' => 'ZA.ZQ.Zg', 'config' => 'ZA:ZQ'];
+});
+$savedDevelopment = BackendProfiles::configure($developmentRequest);
+$developmentNext = $GLOBALS['options'][BackendProfiles::OPTION];
+check($savedDevelopment['active'] === 'production' && $savedDevelopment['generation'] === 5, 'DEV migration changed the active profile');
+check(serialize($developmentNext['profiles']['production']) === $unchangedProd, 'DEV migration mutated production settings');
+check(serialize($developmentNext['archivedProfiles']['development'][1]) === serialize($developmentOld['profiles']['development']), 'Previous DEV binding was not archived');
+check($developmentNext['profiles']['development']['stateNamespace'] === 'development/bindings/2', 'New DEV binding inherited the old state namespace');
+reject(fn() => BackendProfiles::runWithContext(['id' => 'development', 'bindingRevision' => 1], fn() => true), 'Previous DEV jobs could run against the new binding');
+BackendProfiles::runWithContext(['id' => 'development', 'bindingRevision' => 2], static function (): void {
+    check(BackendProfiles::settings()->workspaceId === 'test-workspace' && BackendProfiles::settings()->siteId === 'test-deployment-site', 'New DEV binding did not save');
+    check(BackendProfiles::optionName('gatey') === 'wpsuite-profile/development/bindings/2/gatey', 'New DEV options used the old namespace');
+});
+echo "Development site migration keeps its platform and archives the previous binding PASS.\n";
+
 // Other component fixtures include this suite: leave its established baseline exact.
 $GLOBALS['options'] = $previewFixtureOptions;
 (new ReflectionProperty(BackendProfiles::class, 'requestContext'))->setValue(null, $previewFixtureContext);

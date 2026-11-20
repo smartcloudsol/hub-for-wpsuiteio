@@ -28,6 +28,7 @@ export function BackendProfiles({ nonce }: { nonce?: string }) {
   const [drafts, setDrafts] = useState<Record<ProfileId, ProfileDraft>>({ production: emptyDraft("legacy"), development: emptyDraft("foundation") });
   const [siteKey, setSiteKey] = useState("");
   const [archiveLegacy, setArchiveLegacy] = useState(false);
+  const [archiveDevelopment, setArchiveDevelopment] = useState(false);
   const draft = drafts[configure];
   const { workspaceId, siteId, api, configUrl } = draft;
   const foundation = configure === "development" || draft.backendType === "foundation";
@@ -45,7 +46,9 @@ export function BackendProfiles({ nonce }: { nonce?: string }) {
   let validConfigUrl = false;
   try { const url = new URL(configUrl.trim()); validConfigUrl = url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash && !/[\\\s?#]/.test(configUrl.trim()) && !Array.from(configUrl.trim()).some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127); } catch { /* Incomplete drafts are not submitted. */ }
   const legacyTransition = configure === "production" && foundation && status?.profiles.some(profile => profile.id === "production" && profile.configured && profile.workspaceApiMode === "legacy") === true;
+  const developmentTransition = configure === "development" && status?.enabled === true && !!savedConnection && !canReuseKey;
   const canSave = (!legacyTransition || (archiveLegacy && status?.active !== "production")) && !!status && !busy && !!workspaceId.trim() && !!siteId.trim() && (!!siteKey || canReuseKey)
+    && (!developmentTransition || (archiveDevelopment && status.active === "production" && api.trim() === savedConnection?.platformApiBaseUrl && configUrl.trim() === savedConnection?.platformConfigUrl))
     && (!foundation || (validApi && validConfigUrl));
   const endpoint = `${suite?.restUrl?.replace(/\/+$/, "") ?? ""}/backend-profiles`;
   const restNonce = nonce ?? suite?.nonce ?? "";
@@ -106,6 +109,7 @@ export function BackendProfiles({ nonce }: { nonce?: string }) {
     setBusy(true); setError(undefined);
     try {
       await request("/configure", { profileId: configure, expectedGeneration: status.generation, reuseCurrentKey: siteKey === "", ...(legacyTransition ? { archiveLegacyProduction: archiveLegacy } : {}),
+        ...(developmentTransition ? { archiveDevelopmentBinding: archiveDevelopment } : {}),
         connection: { workspaceId: workspaceId.trim(), accountId: workspaceId.trim(), siteId: siteId.trim(), subscriber: true,
           workspaceApiMode: foundation ? "workspace" : "legacy",
           ...(foundation ? { platformApiBaseUrl: api.trim(), platformConfigUrl: configUrl.trim() } : { platformApiBaseUrl: "", platformConfigUrl: "" }), ...(siteKey ? { siteKey } : {}) },
@@ -130,7 +134,7 @@ export function BackendProfiles({ nonce }: { nonce?: string }) {
           <summary style={{ cursor: "pointer" }}>Configure a backend profile</summary>
           <Stack gap="sm" mt="sm">
             <NativeSelect label="Profile to configure" description="Choose which connection to validate and save. This choice does not switch the active backend." value={configure} disabled={busy} data={Object.entries(labels).map(([value, label]) => ({ value, label }))}
-              onChange={event => { const value = event.currentTarget.value; if (value === "production" || value === "development") { setConfigure(value); setSiteKey(""); setArchiveLegacy(false); } }} />
+              onChange={event => { const value = event.currentTarget.value; if (value === "production" || value === "development") { setConfigure(value); setSiteKey(""); setArchiveLegacy(false); setArchiveDevelopment(false); } }} />
             {configure === "production" ? <NativeSelect label="Production backend type" description="Use legacy production or the matching Foundation connection. During pre-cutover tests, use https://api-prod.wpsuite.io with its production-preview public configuration." value={draft.backendType} disabled={busy}
               data={[{ value: "legacy", label: "Legacy production API" }, { value: "foundation", label: "Foundation API" }]}
               onChange={event => { editDraft({ backendType: event.currentTarget.value as BackendType }); setSiteKey(""); setArchiveLegacy(false); }} />
@@ -140,8 +144,12 @@ export function BackendProfiles({ nonce }: { nonce?: string }) {
               <Text size="sm">This archives the legacy binding and starts a new isolated settings revision. Existing settings and queues are retained; jobs pinned to the old revision will stop rather than use the new backend. Use the same workspace, site and connection key. The active backend will not change.</Text>
               {status?.active === "production" ? <Text size="sm">Activate Development first, then return here to replace the inactive Production connection.</Text> : <Checkbox mt="sm" label="Archive the legacy production binding and configure a separate Foundation binding" checked={archiveLegacy} onChange={event => setArchiveLegacy(event.currentTarget.checked)} />}
             </Alert>}
-            <TextInput label="Workspace ID" description="Copy the workspace identifier from the dashboard workspace selector in the backend you are configuring. The workspace name is not the ID." placeholder="Example: workspace_123" value={workspaceId} onChange={event => { editDraft({ workspaceId: event.currentTarget.value }); setSiteKey(""); }} disabled={busy} />
-            <TextInput label="Site ID" description="Copy the site identifier from that workspace’s site list. Use the matching record in production or DEV, not the WordPress URL." placeholder="Example: site_123" value={siteId} onChange={event => { editDraft({ siteId: event.currentTarget.value }); setSiteKey(""); }} disabled={busy} />
+            {developmentTransition && <Alert color="yellow" title="Move the development profile to a different site">
+              <Text size="sm">The previous connection and local settings are archived. The new site uses its own configuration. Jobs from the previous connection will stop.</Text>
+              {status?.active === "development" ? <Text size="sm">Activate Production, then return here to move the inactive development profile.</Text> : <Checkbox mt="sm" label="Archive the existing development binding and connect the selected site" checked={archiveDevelopment} onChange={event => setArchiveDevelopment(event.currentTarget.checked)} />}
+            </Alert>}
+            <TextInput label="Workspace ID" description="Copy the workspace identifier from the dashboard workspace selector in the backend you are configuring. The workspace name is not the ID." placeholder="Example: workspace_123" value={workspaceId} onChange={event => { editDraft({ workspaceId: event.currentTarget.value }); setSiteKey(""); setArchiveDevelopment(false); }} disabled={busy} />
+            <TextInput label="Site ID" description="Copy the site identifier from that workspace’s site list. Use the matching record in production or DEV, not the WordPress URL." placeholder="Example: site_123" value={siteId} onChange={event => { editDraft({ siteId: event.currentTarget.value }); setSiteKey(""); setArchiveDevelopment(false); }} disabled={busy} />
             <TextInput type="password" label="Connection key" description="Use the connection key for that exact site record (dashboard site details → Reveal). This form never loads or reveals a saved key. Leave empty only to reuse the current profile’s key with unchanged workspace and site IDs." autoComplete="off" value={siteKey} onChange={event => setSiteKey(event.currentTarget.value)} disabled={busy} />
             {!siteKey && !canReuseKey && <Text size="sm">Enter the matching site connection key before saving this profile.</Text>}
             {foundation && <>

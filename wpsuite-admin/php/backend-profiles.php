@@ -310,15 +310,22 @@ final class BackendProfiles
         if ($id === 'development' && ($candidate->workspaceApiMode !== 'workspace' || $candidate->platformApiBaseUrl !== 'https://api-dev.wpsuite.io')) throw new \InvalidArgumentException('INVALID_DEVELOPMENT_TARGET');
         if ($id === 'production' && $candidate->workspaceApiMode === 'workspace' && !in_array($candidate->platformApiBaseUrl, ['https://api.wpsuite.io', 'https://api-prod.wpsuite.io'], true)) throw new \InvalidArgumentException('INVALID_PRODUCTION_TARGET');
         $archiveLegacy = ($body['archiveLegacyProduction'] ?? false) === true;
-        $transition = $archiveLegacy && $id === 'production' && isset($registry['profiles'][$id])
+        $legacyTransition = $archiveLegacy && $id === 'production' && isset($registry['profiles'][$id])
             && $registry['active'] !== 'production' && $base->workspaceApiMode === 'legacy' && $candidate->workspaceApiMode === 'workspace'
             && $base->workspaceId === $candidate->workspaceId && $base->siteId === $candidate->siteId && hash_equals($base->siteKey, $candidate->siteKey);
-        if ($archiveLegacy && !$transition) throw new \RuntimeException('PROFILE_TRANSITION_NOT_AVAILABLE');
+        $archiveDevelopment = ($body['archiveDevelopmentBinding'] ?? false) === true;
+        $developmentTransition = $archiveDevelopment && $id === 'development' && isset($registry['profiles'][$id])
+            && $registry['active'] === 'production' && $base->workspaceApiMode === 'workspace'
+            && $base->platformApiBaseUrl === $candidate->platformApiBaseUrl && $base->platformConfigUrl === $candidate->platformConfigUrl
+            && ($base->workspaceId !== $candidate->workspaceId || $base->siteId !== $candidate->siteId)
+            && !empty($fields['siteKey']);
+        if (($archiveLegacy && !$legacyTransition) || ($archiveDevelopment && !$developmentTransition)) throw new \RuntimeException('PROFILE_TRANSITION_NOT_AVAILABLE');
+        $transition = $legacyTransition || $developmentTransition;
         if (isset($registry['profiles'][$id]) && $base->connectionFingerprint() !== $candidate->connectionFingerprint() && !$transition) throw new \RuntimeException('PROFILE_REBIND_REQUIRES_MIGRATION');
         $revision = ($registry['profiles'][$id]['bindingRevision'] ?? 1) + ($transition ? 1 : 0);
         $record = self::newRecord($id, $candidate, $revision, $body);
         if ($transition || isset($registry['profiles'][$id]['stateNamespace'])) $record['stateNamespace'] = $id . '/bindings/' . $revision;
-        $assets = self::validate($record, $candidate, $transition);
+        $assets = self::validate($record, $candidate, $legacyTransition);
         $record['identity'] = $assets['identity'];
         $next = $registry;
         if (!$next) {
@@ -474,7 +481,7 @@ final class BackendProfiles
         $savedIdentity = self::registry()['profiles'][$record['id']]['identity'] ?? null;
         if (!$newBinding && is_array($savedIdentity)) self::assertIdentityUnchanged($savedIdentity, $identity);
         $previous = self::$pending;
-        self::$pending = $record;
+        self::$pending = ['identity' => $identity] + $record;
         try { $assets = (self::$validator)($candidate); } finally { self::$pending = $previous; }
         if (!is_array($assets) || !is_string($assets['config'] ?? null) || !is_string($assets['jws'] ?? null)
             || !preg_match('/^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$/D', $assets['config'])
@@ -659,7 +666,12 @@ final class BackendProfiles
     {
         $code = $error->getMessage();
         $status = $code === 'STALE_PROFILE' ? 409 : (str_starts_with($code, 'INVALID_') || $error instanceof \InvalidArgumentException ? 400 : 503);
-        return new \WP_Error('backend_profile_' . strtolower(preg_match('/^[A-Z_]+$/D', $code) ? $code : 'unavailable'),
-            $status === 409 ? 'The backend profile changed. Reload and retry.' : 'The requested backend profile could not be validated or saved. The current selection was preserved.', ['status' => $status]);
+        $known = preg_match('/^[A-Z_]+$/D', $code) === 1;
+        $details = ['status' => $status];
+        if (!$known) {
+            $details['diagnostic'] = (new \ReflectionClass($error))->getShortName() . '@' . basename($error->getFile()) . ':' . $error->getLine();
+        }
+        return new \WP_Error('backend_profile_' . strtolower($known ? $code : 'unavailable'),
+            $status === 409 ? 'The backend profile changed. Reload and retry.' : 'The requested backend profile could not be validated or saved. The current selection was preserved.', $details);
     }
 }
