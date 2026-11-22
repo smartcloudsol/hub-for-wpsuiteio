@@ -11,6 +11,7 @@ const workspace = path.resolve(vendor, '../..');
 const { build } = createRequire(path.join(vendor, 'package.json'))('esbuild');
 const { chromium } = createRequire(process.env.PLAYWRIGHT_PACKAGE_JSON || path.join(workspace, 'console/package.json'))('playwright');
 const bundle = path.resolve(process.argv[2] || path.join(vendor, 'dist/amplify-vendor.min.js'));
+const sdk = process.argv[3] && path.resolve(process.argv[3]);
 const dir = await mkdtemp(path.join(tmpdir(), 'passkey-mfa-browser-'));
 let browser;
 try {
@@ -47,8 +48,12 @@ try {
     await page.route('**/*',async route=>{
       const req=route.request(), url=new URL(req.url());
       if(url.hostname==='fixture.test') {
-        const asset={'/react.js':path.join(dir,'react.js'),'/vendor.js':bundle,'/fixture.js':path.join(dir,'fixture.js')}[url.pathname];
-        return route.fulfill(asset?{body:await readFile(asset),contentType:'text/javascript'}:{body:'<!doctype html><div id="root"></div><script src="/react.js"></script><script src="/vendor.js"></script><script src="/fixture.js"></script>',contentType:'text/html'});
+        const asset={'/react.js':path.join(dir,'react.js'),'/sdk.js':sdk,'/vendor.js':bundle,'/fixture.js':path.join(dir,'fixture.js')}[url.pathname];
+        const scripts = ['/react.js', ...(sdk ? ['/sdk.js'] : []), '/vendor.js', '/fixture.js'];
+        return route.fulfill(asset ? {body:await readFile(asset),contentType:'text/javascript'} : {
+          body:'<!doctype html><div id="root"></div>' + scripts.map(src => `<script src="${src}"></script>`).join(''),
+          contentType:'text/html',
+        });
       }
       const operation=req.headers()['x-amz-target']?.split('.').at(-1);
       if(url.hostname==='cognito-identity.eu-central-1.amazonaws.com') {

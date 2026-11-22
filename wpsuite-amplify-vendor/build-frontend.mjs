@@ -1,9 +1,18 @@
-import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import { createRequire, findPackageJSON } from "node:module";
 import { fileURLToPath } from "node:url";
 import externalGlobal from "esbuild-plugin-external-global";
 import ts from "typescript";
 
 const require = createRequire(import.meta.url);
+const { dependencies: pinnedDependencies } = require("./package.json");
+for (const [name, pinned] of Object.entries(pinnedDependencies)) {
+  const manifest = findPackageJSON(name, import.meta.url);
+  const installed = manifest && JSON.parse(readFileSync(manifest, "utf8")).version;
+  if (installed !== pinned) {
+    throw new Error(`Expected ${name}@${pinned}, found ${installed ?? "no installation"}. Run yarn install --frozen-lockfile before building.`);
+  }
+}
 const { build } = createRequire(require.resolve("tsup"))("esbuild");
 const directory = fileURLToPath(new URL(".", import.meta.url));
 const react = { react: "React", "react-dom": "ReactDOM", "react/jsx-runtime": "ReactJSXRuntime" };
