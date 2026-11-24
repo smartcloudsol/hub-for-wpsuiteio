@@ -131,20 +131,20 @@ final class CustomTranslationsCatalog
     {
         $body = $request->get_body();
         if (!is_string($body) || $body === '') {
-            return $this->validationError('The request body must be a JSON object.');
+            return $this->validationError(__('The request body must be a JSON object.', 'smartcloud-wpsuite'));
         }
         if (strlen($body) > WPSUITE_CUSTOM_TRANSLATIONS_MAX_BYTES + 16384) {
-            return $this->validationError('The translation catalog is too large.', 413);
+            return $this->validationError(__('The translation catalog is too large.', 'smartcloud-wpsuite'), 413);
         }
 
         try {
             $payload = json_decode($body, false, 5, JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
-            return $this->validationError('The request body is not valid UTF-8 JSON.');
+            return $this->validationError(__('The request body is not valid UTF-8 JSON.', 'smartcloud-wpsuite'));
         }
 
         if (!$payload instanceof \stdClass) {
-            return $this->validationError('The request body must be a JSON object.');
+            return $this->validationError(__('The request body must be a JSON object.', 'smartcloud-wpsuite'));
         }
 
         $properties = array_keys(get_object_vars($payload));
@@ -152,7 +152,7 @@ final class CustomTranslationsCatalog
         $valid_properties = $properties === array('catalog')
             || $properties === array('catalog', 'defaultLocale');
         if (!$valid_properties || !$payload->catalog instanceof \stdClass) {
-            return $this->validationError('The request body must contain a catalog and may contain a defaultLocale property.');
+            return $this->validationError(__('The request body must contain a catalog and may contain a defaultLocale property.', 'smartcloud-wpsuite'));
         }
 
         $catalog = $this->validateCatalog($payload->catalog);
@@ -162,7 +162,7 @@ final class CustomTranslationsCatalog
 
         $has_requested_default = property_exists($payload, 'defaultLocale');
         if ($has_requested_default && $payload->defaultLocale !== null && !is_string($payload->defaultLocale)) {
-            return $this->validationError('The default locale must be a locale in the translation catalog.');
+            return $this->validationError(__('The default locale must be a locale in the translation catalog.', 'smartcloud-wpsuite'));
         }
 
         $requested_default = $has_requested_default && is_string($payload->defaultLocale)
@@ -172,14 +172,14 @@ final class CustomTranslationsCatalog
                 : get_option(WPSUITE_CUSTOM_TRANSLATIONS_DEFAULT_LOCALE_OPTION, null));
         if ($catalog === array()) {
             if ($requested_default !== null && $requested_default !== '') {
-                return $this->validationError('An empty translation catalog cannot have a default locale.');
+                return $this->validationError(__('An empty translation catalog cannot have a default locale.', 'smartcloud-wpsuite'));
             }
             return array('catalog' => $catalog, 'defaultLocale' => null);
         }
 
         $default_locale = $this->matchCatalogLocale($catalog, $requested_default);
         if ($default_locale === null) {
-            return $this->validationError('The default locale must be a locale in the translation catalog.');
+            return $this->validationError(__('The default locale must be a locale in the translation catalog.', 'smartcloud-wpsuite'));
         }
 
         return array('catalog' => $catalog, 'defaultLocale' => $default_locale);
@@ -192,7 +192,7 @@ final class CustomTranslationsCatalog
     {
         $locales = get_object_vars($input);
         if (count($locales) > WPSUITE_CUSTOM_TRANSLATIONS_MAX_LOCALES) {
-            return $this->validationError('The translation catalog contains too many locales.');
+            return $this->validationError(__('The translation catalog contains too many locales.', 'smartcloud-wpsuite'));
         }
 
         $catalog = array();
@@ -203,23 +203,23 @@ final class CustomTranslationsCatalog
                 || strlen($locale) > 35
                 || !preg_match('/^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*$/D', $locale)
             ) {
-                return $this->validationError('Every translation catalog locale must be a valid locale identifier.');
+                return $this->validationError(__('Every translation catalog locale must be a valid locale identifier.', 'smartcloud-wpsuite'));
             }
 
             $normalized_locale = strtolower(str_replace('_', '-', $locale));
             if (isset($normalized_locales[$normalized_locale])) {
-                return $this->validationError('The translation catalog contains duplicate equivalent locales.');
+                return $this->validationError(__('The translation catalog contains duplicate equivalent locales.', 'smartcloud-wpsuite'));
             }
             $normalized_locales[$normalized_locale] = true;
 
             if (!$dictionary instanceof \stdClass) {
-                return $this->validationError('Every locale must map to a translation object.');
+                return $this->validationError(__('Every locale must map to a translation object.', 'smartcloud-wpsuite'));
             }
 
             $entries = get_object_vars($dictionary);
             $entry_count += count($entries);
             if ($entry_count > WPSUITE_CUSTOM_TRANSLATIONS_MAX_ENTRIES) {
-                return $this->validationError('The translation catalog contains too many entries.');
+                return $this->validationError(__('The translation catalog contains too many entries.', 'smartcloud-wpsuite'));
             }
 
             $validated_entries = array();
@@ -229,14 +229,14 @@ final class CustomTranslationsCatalog
                     || !$this->isValidUtf8($source)
                     || str_contains($source, "\0")
                 ) {
-                    return $this->validationError('Every translation key must be a non-empty UTF-8 string of an allowed length.');
+                    return $this->validationError(__('Every translation key must be a non-empty UTF-8 string of an allowed length.', 'smartcloud-wpsuite'));
                 }
                 if (!is_string($translation)
                     || strlen($translation) > WPSUITE_CUSTOM_TRANSLATIONS_MAX_VALUE_BYTES
                     || !$this->isValidUtf8($translation)
                     || str_contains($translation, "\0")
                 ) {
-                    return $this->validationError('Every translation value must be a UTF-8 string of an allowed length.');
+                    return $this->validationError(__('Every translation value must be a UTF-8 string of an allowed length.', 'smartcloud-wpsuite'));
                 }
                 $validated_entries[$source] = $translation;
             }
@@ -251,7 +251,7 @@ final class CustomTranslationsCatalog
             return $json;
         }
         if (strlen($json) > WPSUITE_CUSTOM_TRANSLATIONS_MAX_BYTES) {
-            return $this->validationError('The translation catalog is too large.', 413);
+            return $this->validationError(__('The translation catalog is too large.', 'smartcloud-wpsuite'), 413);
         }
 
         return $catalog;
@@ -496,7 +496,7 @@ final class CustomTranslationsCatalog
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
         );
         if (!is_string($encoded)) {
-            return $this->validationError('The translation catalog could not be encoded.');
+            return $this->validationError(__('The translation catalog could not be encoded.', 'smartcloud-wpsuite'));
         }
 
         return $encoded;
@@ -548,8 +548,7 @@ final class CustomTranslationsCatalog
     {
         return new WP_Error(
             'wpsuite_translations_invalid_catalog',
-            // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText -- Every caller supplies a bounded internal validation message, never request data.
-            __($message, 'smartcloud-wpsuite'),
+            $message,
             array('status' => $status)
         );
     }

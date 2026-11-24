@@ -130,7 +130,7 @@ final class AdminNavigation
         $submenu[$parent] = $rows;
         add_filter('submenu_file', array($this, 'highlightSubmenu'), PHP_INT_MAX);
         add_filter('parent_file', array($this, 'highlightParent'), PHP_INT_MAX);
-        add_action('admin_head', array($this, 'renderMenuStyles'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueueMenuStyles'));
         add_action('admin_enqueue_scripts', array($this, 'enqueueNative'));
         new AdminTopNavigation($this);
     }
@@ -203,9 +203,14 @@ final class AdminNavigation
         }
     }
 
-    public function renderMenuStyles(): void
+    public function enqueueMenuStyles(): void
     {
-        echo '<style id="wpsuite-navigation-menu">#adminmenu .wpsuite-legacy-destination{display:none!important}#adminmenu .wpsuite-secondary-destination{display:none!important}</style>';
+        if (wp_style_is('wpsuite-navigation-menu', 'enqueued')) {
+            return;
+        }
+        wp_register_style('wpsuite-navigation-menu', false, array(), SMARTCLOUD_WPSUITE_VERSION);
+        wp_enqueue_style('wpsuite-navigation-menu');
+        wp_add_inline_style('wpsuite-navigation-menu', '#adminmenu .wpsuite-legacy-destination{display:none!important}#adminmenu .wpsuite-secondary-destination{display:none!important}');
     }
 
     public function highlightSubmenu(?string $submenuFile): ?string

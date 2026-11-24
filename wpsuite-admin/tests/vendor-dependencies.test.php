@@ -35,7 +35,7 @@ namespace {
     if (isset($GLOBALS['enqueued']['smartcloud-wpsuite-main-script'])) throw new RuntimeException('Disabled provider enqueued main script');
     $settingsProperty->setValue($hub, new SmartCloud\WPSuite\Hub\SiteSettings(reCaptchaPublicKey: 'test-key', renderRecaptchaProvider: true));
     $hub->enqueueScripts();
-    if (($GLOBALS['enqueued']['smartcloud-wpsuite-main-script'][2] ?? null) !== array('wp-element', 'react-jsx-runtime')) throw new RuntimeException('Configured provider did not enqueue main dependencies');
+    if (($GLOBALS['enqueued']['smartcloud-wpsuite-main-script'][2] ?? null) !== array('smartcloud-wpsuite-bootstrap', 'wp-element', 'react-jsx-runtime')) throw new RuntimeException('Configured provider did not enqueue main dependencies');
     foreach (array('smartcloud-wpsuite-amplify-vendor', 'smartcloud-wpsuite-mantine-vendor') as $handle) {
         if (($GLOBALS['registrations'][$handle] ?? null) !== array('react', 'react-dom', 'react-jsx-runtime')) throw new RuntimeException('Missing frontend dependency: ' . $handle);
     }

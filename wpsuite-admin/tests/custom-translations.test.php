@@ -19,6 +19,8 @@ class WP_Error
     ) {
     }
 
+    public function get_error_message(): string { return $this->message; }
+
     public function get_error_code(): string
     {
         return $this->code;
@@ -70,8 +72,8 @@ class WP_REST_Response
 
 function __(string $message, string $domain = 'default'): string
 {
-    unset($domain);
-    return $message;
+    $GLOBALS['translation_calls'][] = array($message, $domain);
+    return !empty($GLOBALS['mock_locale']) && $domain === 'smartcloud-wpsuite' ? 'translated: ' . $message : $message;
 }
 
 function current_user_can(string $capability): bool
@@ -205,13 +207,21 @@ $invalid_payloads = array(
     '{"catalog":{"en":{"":"Hi"}}}',
     '{"catalog":{},"defaultLocale":null,"revision":"unexpected"}',
 );
+$GLOBALS['mock_locale'] = true;
 foreach ($invalid_payloads as $payload) {
-    expect_error(
-        $store->putRestResponse(new WP_REST_Request($payload, array('If-Match' => $empty['revision']))),
-        'wpsuite_translations_invalid_catalog',
-        400
-    );
+    $invalid = $store->putRestResponse(new WP_REST_Request($payload, array('If-Match' => $empty['revision'])));
+    expect_error($invalid, 'wpsuite_translations_invalid_catalog', 400);
+    expect(str_starts_with($invalid->get_error_message(), 'translated: '), 'Validation messages must be translated at runtime.');
 }
+$GLOBALS['mock_locale'] = false;
+$source = file_get_contents(dirname(__DIR__) . '/php/custom-translations.php');
+preg_match_all('/\$this->validationError\(/', $source, $all_calls);
+preg_match_all("/\\\$this->validationError\\(__\\('(?:[^'\\\\]|\\\\.)*', 'smartcloud-wpsuite'\\)/", $source, $translated_calls);
+expect(count($all_calls[0]) === count($translated_calls[0]) && count($all_calls[0]) > 0, 'Every validation message must be a literal in the correct text domain.');
+$helper = new ReflectionMethod($store, 'validationError');
+$before_calls = count($GLOBALS['translation_calls']);
+$wrapped = $helper->invoke($store, 'already translated', 413);
+expect($wrapped->get_error_message() === 'already translated' && count($GLOBALS['translation_calls']) === $before_calls, 'The error helper must only wrap the translated message.');
 
 $legacy_empty = $store->putRestResponse(
     new WP_REST_Request('{"catalog":{}}', array('If-Match' => $empty['revision']))

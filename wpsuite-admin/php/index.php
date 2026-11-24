@@ -72,6 +72,7 @@ class HubAdmin
     private SiteSettings $siteSettings;
     private CustomTranslationsCatalog $customTranslations;
     private string $legacyThemeCss = '';
+    private bool $bootstrapEnqueued = false;
     private ?AdminNavigation $navigation = null;
 
     public function __construct()
@@ -196,8 +197,10 @@ class HubAdmin
         add_action('admin_menu', array($this->navigation, 'registerMenus'), PHP_INT_MAX);
         add_filter('smartcloud_wpsuite_theme_css_url', array($this, 'filterThemeCssUrl'));
         add_filter('smartcloud_wpsuite_theme_css_urls', array($this, 'filterThemeCssUrls'));
-        add_action('wp_head', array($this, 'addMainScript', ), 1);
-        add_action('admin_head', array($this, 'addMainScript'), 1);
+        add_action('wp_enqueue_scripts', array($this, 'addMainScript'), PHP_INT_MAX);
+        add_action('admin_enqueue_scripts', array($this, 'addMainScript'), PHP_INT_MAX);
+        add_action('wp_head', array($this, 'printBootstrap'), 1);
+        add_action('admin_head', array($this, 'printBootstrap'), 1);
 
         // Front‑end assets + shortcodes
         add_action('wp_enqueue_scripts', array($this, 'enqueueScripts', ), 10);
@@ -424,6 +427,9 @@ class HubAdmin
      */
     public function addMainScript(): void
     {
+        if ($this->bootstrapEnqueued) {
+            return;
+        }
         $data = array(
             'restUrl' => rest_url(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/v1'),
             'uploadUrl' => $this->getVirtualAssetBaseUrl(),
@@ -479,7 +485,17 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         // The data is JSON-encoded with HTML-significant characters escaped.
         // KSES must not process JavaScript because it corrupts valid CSS selectors
         // embedded in the site settings and can turn this whole bootstrap invalid.
-        wp_print_inline_script_tag($js);
+        wp_register_script('smartcloud-wpsuite-bootstrap', false, array(), SMARTCLOUD_WPSUITE_VERSION, false);
+        wp_enqueue_script('smartcloud-wpsuite-bootstrap');
+        $this->bootstrapEnqueued = true;
+        wp_add_inline_script('smartcloud-wpsuite-bootstrap', $js, 'before');
+    }
+
+    /** Print the queued bootstrap before other head callbacks use the global. */
+    public function printBootstrap(): void
+    {
+        $this->addMainScript();
+        wp_print_scripts(array('smartcloud-wpsuite-bootstrap'));
     }
 
     /**
@@ -487,6 +503,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
      */
     public function enqueueScripts(): void
     {
+        wp_register_script('smartcloud-wpsuite-bootstrap', false, array(), SMARTCLOUD_WPSUITE_VERSION, false);
         $scriptArgs = array('in_footer' => true, 'strategy' => 'defer');
         wp_register_script(
             'smartcloud-wpsuite-webcrypto-vendor',
@@ -542,7 +559,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
 
         // The shared main bundle mounts the site-wide reCAPTCHA provider only when configured.
         if ($this->siteSettings->renderRecaptchaProvider && trim($this->siteSettings->reCaptchaPublicKey) !== '') {
-            $main_script_dependencies = $this->getAssetDependencies(SMARTCLOUD_WPSUITE_PATH . 'main.asset.php');
+            $main_script_dependencies = array_values(array_unique(array_merge(array('smartcloud-wpsuite-bootstrap'), $this->getAssetDependencies(SMARTCLOUD_WPSUITE_PATH . 'main.asset.php'))));
             wp_enqueue_script('smartcloud-wpsuite-main-script', SMARTCLOUD_WPSUITE_URL . 'main.js', $main_script_dependencies, SMARTCLOUD_WPSUITE_VERSION, array('in_footer' => true, 'strategy' => 'defer'));
         }
     }
@@ -597,6 +614,7 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
             $script_dependencies = array_merge(
                 $this->getAssetDependencies(SMARTCLOUD_WPSUITE_PATH . 'admin.asset.php'),
                 array(
+                    'smartcloud-wpsuite-bootstrap',
                     'smartcloud-wpsuite-webcrypto-vendor',
                     'smartcloud-wpsuite-mantine-vendor',
                 )

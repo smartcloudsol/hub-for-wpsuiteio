@@ -73,6 +73,7 @@ function nav_access(string $page): bool
 
 $repo = dirname(__DIR__, 3);
 define('SMARTCLOUD_WPSUITE_CANONICAL_SLUG', 'smartcloud-wpsuite');
+define('SMARTCLOUD_WPSUITE_VERSION', 'test-hub-version');
 define('SMARTCLOUD_WPSUITE_LEGACY_SLUG', 'smartcloud-wpsuiteio');
 define('SMARTCLOUD_WPSUITE_PATH', dirname(__DIR__) . '/php/');
 define('GATEY_PATH', $repo . '/gatey/');
@@ -284,6 +285,32 @@ $html = ob_get_clean();
 nav_assert(str_contains($html, 'data-navigation='), 'Hub renders real navigation bootstrap');
 nav_assert(!str_contains($html, 'siteKey'), 'Bootstrap does not expose connection settings');
 
+// Exercise real WP_Styles and WP_Scripts head output with the Hub callbacks.
+(new ReflectionProperty($hub, 'siteSettings'))->setValue($hub, new SmartCloud\WPSuite\Hub\SiteSettings(siteKey: 'secret-test', workspaceId: '</script><script>alert(1)</script>'));
+(new ReflectionProperty($hub, 'customTranslations'))->setValue($hub, new SmartCloud\WPSuite\Hub\CustomTranslationsCatalog(static fn(string $revision): string => ''));
+ob_start();
+if (has_action('admin_enqueue_scripts', array($navigation, 'enqueueMenuStyles'))) { $navigation->enqueueMenuStyles(); }
+nav_assert(ob_get_clean() === '', 'Menu enqueue emits no direct markup');
+wp_register_script('smartcloud-wpsuite-bootstrap', false, array(), SMARTCLOUD_WPSUITE_VERSION, false);
+wp_register_script('wpsuite-test-dependent', 'https://navigation.test/dependent.js', array('smartcloud-wpsuite-bootstrap'), null, false);
+wp_enqueue_script('wpsuite-test-dependent');
+ob_start(); wp_print_styles('wpsuite-navigation-menu'); $styleHtml = ob_get_clean();
+nav_assert(has_action('admin_enqueue_scripts', array($navigation, 'enqueueMenuStyles')) ? (str_contains($styleHtml, 'wpsuite-legacy-destination') && str_contains($styleHtml, 'wpsuite-secondary-destination')) : $styleHtml === '', 'WordPress prints menu CSS only in permitted contexts');
+// Run the complete wp_head hook with the relevant core enqueue/print sequence.
+remove_all_actions('wp_head');
+add_action('wp_head', 'wp_enqueue_scripts', 1);
+add_action('wp_enqueue_scripts', array($hub, 'addMainScript'), PHP_INT_MAX);
+add_action('wp_head', array($hub, 'printBootstrap'), 1);
+$earlySeen = false;
+add_action('wp_head', static function () use (&$earlySeen): void { $earlySeen = wp_script_is('smartcloud-wpsuite-bootstrap', 'done'); }, 2);
+add_action('wp_head', 'wp_print_head_scripts', 9);
+ob_start(); do_action('wp_head'); $scriptHtml = ob_get_clean();
+nav_assert($earlySeen, 'Bootstrap is printed before a priority-2 wp_head consumer');
+nav_assert(substr_count($scriptHtml, 'const __wpsuiteGlobal') === 1, 'WordPress prints bootstrap once');
+nav_assert(strpos($scriptHtml, 'const __wpsuiteGlobal') < strpos($scriptHtml, 'dependent.js'), 'Bootstrap precedes dependent script');
+nav_assert(!str_contains($scriptHtml, '</script><script>alert(1)</script>') && str_contains($scriptHtml, '\\u003C'), 'Bootstrap JSON escapes script-breaking input');
+nav_assert(str_contains($scriptHtml, current_user_can('manage_options') ? 'secret-test' : '"siteKey":""'), 'Admin site key follows manage_options permission');
+
 // Exercise WordPress' actual menu HTML, not just the PHP submenu array.
 $parent_file = $root;
 $submenu_file = $root;
@@ -306,10 +333,7 @@ $expectedHidden = count(array_filter($submenu[$root] ?? array(), static fn(array
 nav_assert($hiddenRows === $expectedHidden, 'WordPress emits the hidden legacy row classes');
 nav_assert(in_array($scenario, array('subscriber', 'reviewer'), true) ? $hiddenRows === 0 : $hiddenRows > 0, 'Only represented legacy destinations are visually hidden');
 if ($ids) {
-    ob_start();
-    $navigation->renderMenuStyles();
-    $menuCss = ob_get_clean();
-    nav_assert(str_contains($menuCss, '#adminmenu .wpsuite-legacy-destination{display:none!important}'), 'Legacy navigation hiding is scoped to the menu');
+    nav_assert(str_contains($styleHtml, '#adminmenu .wpsuite-legacy-destination{display:none!important}'), 'Legacy navigation hiding is scoped to the menu');
 }
 
 // Discovery is a fixed public catalog. Test real get_plugins metadata and active

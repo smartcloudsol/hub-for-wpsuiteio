@@ -10,6 +10,7 @@ namespace SmartCloud\WPSuite\Hub {
 namespace {
     define('ABSPATH', __DIR__ . '/');
     define('SMARTCLOUD_WPSUITE_CANONICAL_SLUG', 'smartcloud-wpsuite');
+    define('SMARTCLOUD_WPSUITE_VERSION', 'test-hub-version');
     $permissions = array('read', 'manage_options', 'edit_posts', 'install_plugins', 'activate_plugins');
     $installedPlugins = array();
     $activePlugins = array();
@@ -40,7 +41,11 @@ namespace {
     function is_plugin_active_for_network(string $file): bool { return false; }
     function apply_filters(string $hook, array $value): array { return $GLOBALS['descriptors']; }
     function add_filter(string $hook, mixed $callback, int $priority = 10): void {}
-    function add_action(string $hook, mixed $callback, int $priority = 10): void {}
+    function add_action(string $hook, mixed $callback, int $priority = 10): void { $GLOBALS['actions'][$hook][] = $callback; }
+    function wp_register_style(string $handle, mixed $src, array $deps, mixed $version): void { $GLOBALS['styles'][$handle] = array('src' => $src, 'inline' => array()); }
+    function wp_enqueue_style(string $handle): void { $GLOBALS['queued'][$handle] = true; }
+    function wp_style_is(string $handle, string $status): bool { return !empty($GLOBALS['queued'][$handle]); }
+    function wp_add_inline_style(string $handle, string $css): void { check(!empty($GLOBALS['queued'][$handle]), 'Inline style must have an enqueued handle'); $GLOBALS['styles'][$handle]['inline'][] = $css; }
     function get_plugin_page_hookname(string $page, string $parent): string { return $parent . '_page_' . $page; }
     function add_submenu_page(string $parent, string $title, string $label, string $cap, string $slug, mixed $callback): string {
         $GLOBALS['submenu'][$parent][] = array($label, $cap, $slug, $title);
@@ -105,6 +110,14 @@ namespace {
     $hidden = descriptor('private-tool'); $hidden['show_in_menu'] = false;
     $descriptors = array(descriptor(), $hidden);
     $nav->registerMenus();
+    $styleCallbacks = array_filter($GLOBALS['actions']['admin_enqueue_scripts'] ?? array(), static fn($callback): bool => is_array($callback) && $callback[1] === 'enqueueMenuStyles');
+    check(count($styleCallbacks) === 1, 'Menu CSS must register on admin_enqueue_scripts');
+    ob_start();
+    foreach ($styleCallbacks as $callback) { $callback(); $callback(); }
+    check(ob_get_clean() === '', 'Menu enqueue must not emit markup');
+    check(isset($GLOBALS['queued']['wpsuite-navigation-menu']), 'Menu CSS must be queued on the admin screen');
+    check(count($GLOBALS['styles']['wpsuite-navigation-menu']['inline']) === 1, 'Menu CSS must be added exactly once');
+    check(str_contains($GLOBALS['styles']['wpsuite-navigation-menu']['inline'][0], 'wpsuite-legacy-destination') && str_contains($GLOBALS['styles']['wpsuite-navigation-menu']['inline'][0], 'wpsuite-secondary-destination'), 'Both retained menu row types must be hidden');
     $before = $submenu;
     $nav->registerMenus();
     check($submenu === $before, 'Repeated registration must be idempotent');
