@@ -75,6 +75,21 @@ export default function NavigationPages({
                 />
               </section>
             )}
+            {navigation.deployment_review_pending && navigation.deployment_review_url && (
+              <Card component="section" aria-labelledby="wpsuite-deployment-review-title" withBorder radius="md" padding="md">
+                <Stack align="flex-start" gap="xs">
+                  <Title order={2} size="h3" id="wpsuite-deployment-review-title">
+                    {__("Deployment settings to review", TEXT_DOMAIN)}
+                  </Title>
+                  <Text size="sm">
+                    {__("A cloud deployment proposed changes to your WordPress settings.", TEXT_DOMAIN)}
+                  </Text>
+                  <Anchor fw={600} href={navigation.deployment_review_url}>
+                    {__("Review deployment recommendations", TEXT_DOMAIN)}
+                  </Anchor>
+                </Stack>
+              </Card>
+            )}
             <section aria-labelledby="wpsuite-installed-title">
               <Title order={2} id="wpsuite-installed-title" mb="md">
                 {__("Tools on this site", TEXT_DOMAIN)}

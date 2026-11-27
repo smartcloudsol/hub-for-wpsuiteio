@@ -260,8 +260,9 @@ final class AdminNavigation
         $page = $GLOBALS['plugin_page'] ?? (isset($_GET['page']) && is_string($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : ''); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only navigation or redirect; no state mutation.
         $page = is_string($page) && ($GLOBALS['pagenow'] ?? '') === 'admin.php' ? wp_unslash($page) : '';
         $advanced = $page === $parent . '-advanced' || isset($this->legacyDestinations[$page]) || $this->isAdvancedRequest();
+        $deploymentReview = $page === $parent . '-deployment-review' && current_user_can('manage_options');
         $capabilityPages = array_map(fn(array $entry): string => $this->capabilitySlug($entry['id']), $this->capabilities);
-        if ($page !== $parent && !$advanced && !in_array($page, $capabilityPages, true)) {
+        if ($page !== $parent && !$advanced && !$deploymentReview && !in_array($page, $capabilityPages, true)) {
             return null;
         }
         $names = array('gatey' => 'Gatey', 'smartcloud-ai-kit' => 'AI-Kit', 'smartcloud-agent-composer' => 'Agent Composer', 'smartcloud-flow' => 'Flow', 'smartcloud-static-publisher' => 'Static Publisher');
@@ -284,11 +285,15 @@ final class AdminNavigation
                 $groups['wpsuite-platform'] = array('label' => __('Platform', 'smartcloud-wpsuite'), 'links' => array(array('label' => __('Platform Settings', 'smartcloud-wpsuite'), 'url' => $url)));
             }
         }
+        $review = class_exists(DeploymentReview::class) ? new DeploymentReview() : null;
+        $reviewConnected = $review !== null && $review->connected();
         return array(
             'overview_url' => admin_url('admin.php?page=' . $parent),
             'advanced_url' => admin_url('admin.php?page=' . $parent . '-settings'),
-            'active' => in_array($page, array($parent . '-settings', $parent . '-advanced'), true) ? 'platform' : ($page === $parent ? 'overview' : ''),
+            'active' => $deploymentReview ? 'deployment-review' : (in_array($page, array($parent . '-settings', $parent . '-advanced'), true) ? 'platform' : ($page === $parent ? 'overview' : '')),
             'can_manage_connection' => current_user_can('manage_options'),
+            'deployment_review_url' => $reviewConnected ? DeploymentReview::url() : null,
+            'deployment_review_pending' => $reviewConnected && $review->hasPending(),
             'groups' => array_values($groups),
         );
     }
@@ -367,6 +372,8 @@ final class AdminNavigation
         if ($view === '') {
             return null;
         }
+        $review = $view === 'overview' && class_exists(DeploymentReview::class) ? new DeploymentReview() : null;
+        $reviewPending = $review !== null && $review->hasPending();
         return array(
             'schema_version' => 1,
             'view' => $view,
@@ -374,6 +381,8 @@ final class AdminNavigation
             'overview_url' => admin_url('admin.php?page=' . $parent),
             'advanced_url' => admin_url('admin.php?page=' . $parent . '-settings'),
             'can_manage_connection' => current_user_can('manage_options'),
+            'deployment_review_url' => $reviewPending ? DeploymentReview::url() : null,
+            'deployment_review_pending' => $reviewPending,
             'rest_nonce' => wp_create_nonce('wp_rest'),
             'capabilities' => $public,
             'platform_links' => current_user_can('manage_options') ? array(array(

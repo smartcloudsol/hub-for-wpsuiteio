@@ -8,15 +8,17 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const html = execFileSync('php', [resolve(root, 'tests/admin-top-navigation.test.php'), '--render'], {encoding:'utf8'});
+const pendingHtml = execFileSync('php', [resolve(root, 'tests/admin-top-navigation.test.php'), '--render', '--pending-review'], {encoding:'utf8'});
 const css = await readFile(resolve(root, 'php/assets/css/admin-top-navigation.css'));
 const js = await readFile(resolve(root, 'php/assets/js/admin-top-navigation.js'));
 const server = createServer((req,res) => {
   if(req.url === '/style.css'){res.setHeader('Content-Type','text/css');res.end(css);return;}
   if(req.url === '/script.js'){res.setHeader('Content-Type','application/javascript');res.end(js);return;}
-  res.setHeader('Content-Type','text/html');res.end(`<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/style.css"><main style="margin:20px"><button id="before">Before navigation</button>${html}<button id="after">After navigation</button><h1>Plugin-owned screen</h1></main><script src="/script.js"></script>`);
+  res.setHeader('Content-Type','text/html');res.end(`<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/style.css"><main style="margin:20px"><button id="before">Before navigation</button>${req.url === '/pending' ? pendingHtml : html}<button id="after">After navigation</button><h1>Plugin-owned screen</h1></main><script src="/script.js"></script>`);
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const browser=await chromium.launch({headless:true});
+const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
+const browser=await chromium.launch({headless:true,...(executablePath ? {executablePath} : {})});
 try {
   const page=await browser.newPage({viewport:{width:1280,height:900}});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
@@ -52,6 +54,16 @@ try {
   const box=await panel.boundingBox();assert(box.x>=0&&box.x+box.width<=390);
   assert.equal(await panel.evaluate(el=>getComputedStyle(el).overflowY),'auto');
   await page.locator('#before').click();await panel.waitFor({state:'hidden'});
+  await page.goto(`http://127.0.0.1:${server.address().port}/pending`);
+  await page.addStyleTag({content:'.wpsuite-top-navigation__panel{max-height:160px}'});
+  assert.equal(await toggle.getAttribute('aria-describedby'), 'wpsuite-deployment-navigation-pending');
+  await toggle.click();
+  const review = panel.getByRole('link', {name:'Deployment configuration'});
+  assert.ok(await panel.evaluate(el => el.scrollTop > 0), 'Opening the panel scrolls internally to the pending review');
+  assert.equal(await page.evaluate(() => window.scrollY), 0, 'The admin page stays in position');
+  assert.equal(await panel.getByText('Open Deployment configuration to review the new WordPress settings.').count(), 1);
+  await toggle.press('ArrowDown');
+  assert.equal(await review.evaluate(el => el === document.activeElement), true);
   assert.deepEqual(errors,[]);
   console.log('Admin top navigation browser checks passed: hover, click, focus, keyboard, Escape, normal tab order, exact deep links, two-column desktop and mobile layout.');
 } finally {await browser.close();await new Promise(resolve=>server.close(resolve));}

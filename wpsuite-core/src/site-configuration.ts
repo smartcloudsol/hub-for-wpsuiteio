@@ -25,6 +25,7 @@ export interface SiteConfigurationResult<T> {
   subscriptionType?: "PROFESSIONAL" | "AGENCY";
   settings: T;
   revision?: number;
+  configCandidate?: unknown;
 }
 
 const revisions = new Map<string, number>();
@@ -99,7 +100,7 @@ export async function getSitePluginSettings<T>(target: SiteConfigurationTarget, 
   const configuration = data.configuration === null ? null : checkedConfiguration(data.configuration, target, selected.pluginKey);
   const revision = configuration ? Number(configuration.revision) : 0;
   revisions.set(selected.revisionKey, revision);
-  return { ...site, accountId: target.workspaceId, siteId: target.siteId, name: String(site.name ?? ""), domain: String(site.domain ?? ""), settings: (configuration?.settings ?? {}) as T, revision } as SiteConfigurationResult<T>;
+  return { ...site, accountId: target.workspaceId, siteId: target.siteId, name: String(site.name ?? ""), domain: String(site.domain ?? ""), settings: (configuration?.settings ?? {}) as T, revision, configCandidate: data.configCandidate } as SiteConfigurationResult<T>;
 }
 
 export async function putSitePluginSettings<T>(target: SiteConfigurationTarget, settings: T, fetcher: typeof fetch = fetch): Promise<T> {

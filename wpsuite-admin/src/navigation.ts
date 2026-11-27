@@ -37,6 +37,8 @@ export interface NavigationBootstrap {
   overview_url: string;
   advanced_url: string;
   can_manage_connection: boolean;
+  deployment_review_url?: string | null;
+  deployment_review_pending?: boolean;
   rest_nonce?: string;
   capabilities: NavigationCapability[];
   platform_links: NavigationLink[];
@@ -101,6 +103,8 @@ export function parseNavigation(raw: string): NavigationBootstrap | null {
       || !isUrl(value.advanced_url)
       || (value.rest_nonce !== undefined && (typeof value.rest_nonce !== "string" || !value.rest_nonce))
       || typeof value.can_manage_connection !== "boolean"
+      || (value.deployment_review_url != null && !isUrl(value.deployment_review_url))
+      || (value.deployment_review_pending !== undefined && typeof value.deployment_review_pending !== "boolean")
       || !Array.isArray(value.capabilities)
       || !value.capabilities.every(isCapability)
       || !isLinks(value.platform_links)

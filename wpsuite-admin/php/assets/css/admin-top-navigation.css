@@ -20,6 +20,8 @@
 
 .wpsuite-top-navigation{flex-wrap:wrap}
 .wpsuite-top-navigation__toggle.wpsuite-top-navigation__tools{width:auto;font-size:14px;font-weight:600;padding:6px 12px;gap:10px}
+.wpsuite-top-navigation__indicator{display:inline-grid;place-items:center;flex:none;width:18px;height:18px;border-radius:50%;background:#fff3cd;color:#593c00;font-weight:700;line-height:1}
+.wpsuite-top-navigation__review-hint{margin:6px 0 0;padding:8px 10px;border-inline-start:2px solid #2271b1;border-radius:3px;background:#edf5fa;color:#1d2327;font-size:12px}
 .wpsuite-top-navigation__origin{margin:0 0 6px;color:#646970;font-size:11px;font-style:italic}
 .wpsuite-top-navigation__group h2 a{font-weight:650;font-size:14px}
 #wpsuite-product-details{max-width:1280px;margin:0 20px 24px 0}

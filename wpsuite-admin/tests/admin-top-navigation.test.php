@@ -8,9 +8,16 @@ require __DIR__ . '/navigation.test.php';
 ob_end_clean();
 function esc_attr(string $value): string { return htmlspecialchars($value, ENT_QUOTES, 'UTF-8'); }
 function esc_html(string $value): string { return htmlspecialchars($value, ENT_QUOTES, 'UTF-8'); }
+function esc_html__(string $value, string $domain = ''): string { return esc_html(__($value, $domain)); }
 function esc_url(string $value): string { return htmlspecialchars($value, ENT_QUOTES, 'UTF-8'); }
-function wp_enqueue_style(...$args): void { $GLOBALS['enqueued'][] = array('style', $args); }
 function wp_enqueue_script(...$args): void { $GLOBALS['enqueued'][] = array('script', $args); }
+final class DeploymentReviewFixture
+{
+    public function connected(): bool { return current_user_can('manage_options'); }
+    public function hasPending(): bool { return in_array('--pending-review', $GLOBALS['argv'], true); }
+    public static function url(): string { return admin_url('admin.php?page=smartcloud-wpsuite-deployment-review'); }
+}
+class_alias(DeploymentReviewFixture::class, 'SmartCloud\\WPSuite\\Hub\\DeploymentReview');
 define('SMARTCLOUD_WPSUITE_URL', '/hub/');
 $permissions = array('read', 'manage_options', 'edit_posts');
 $menu = array(array('WP Suite', 'manage_options', 'smartcloud-wpsuite'));
@@ -59,11 +66,12 @@ check(!str_contains(json_encode($data), 'nonce') && !str_contains(json_encode($d
 $top = new \SmartCloud\WPSuite\Hub\AdminTopNavigation($navigation);
 $GLOBALS['enqueued'] = array();
 $top->enqueue();
-check(count($GLOBALS['enqueued']) === 2, 'Known screen enqueues standalone CSS and JS.');
+check(!empty($GLOBALS['queued']['wpsuite-admin-top-navigation']) && count($GLOBALS['enqueued']) === 1, 'Known screen enqueues standalone CSS and JS.');
 ob_start(); $top->render(); $top->render(); $html = ob_get_clean();
 check(substr_count($html, '<nav ') === 1, 'Navigation renders once even if notices repeat.');
 check(str_contains($html, 'aria-expanded="false"') && str_contains($html, 'id="wpsuite-advanced-navigation" hidden'), 'Disclosure starts closed and has an accessible control relationship.');
 check(str_contains($html, 'section=api-settings'), 'Deep links preserve exact registered subsection.');
+check(str_contains($html, 'data-wpsuite-deployment-review-pending') === in_array('--pending-review', $argv, true), 'Only pending recommendations mark the deployment quick link for scrolling.');
 if (in_array('--render', $argv, true)) { echo $html; exit; }
 $permissions = array('read', 'edit_posts');
 $GLOBALS['plugin_page'] = '';

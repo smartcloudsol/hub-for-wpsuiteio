@@ -22,6 +22,7 @@ if (file_exists(filename: SMARTCLOUD_WPSUITE_PATH . 'custom-translations.php')) 
 }
 require_once SMARTCLOUD_WPSUITE_PATH . 'navigation.php';
 require_once SMARTCLOUD_WPSUITE_PATH . 'backend-profiles.php';
+require_once SMARTCLOUD_WPSUITE_PATH . 'deployment-review.php';
 BackendProfiles::boot();
 if (
     !class_exists('\\SmartCloud\\WPSuite\\Hub\\Abilities\\Product_Provider_Base', false)
@@ -112,6 +113,7 @@ class HubAdmin
         BackendProfiles::setValidator(fn(SiteSettings $settings) => $this->readConnectionConfig($settings, $settings->workspaceId, $settings->siteId, $settings->siteKey));
         add_filter('smartcloud_wpsuite_replace_theme_css_fragment', array($this, 'replaceThemeCssFragment'), 10, 3);
         add_filter('smartcloud_wpsuite_custom_translations_url', array($this, 'filterCustomTranslationsUrl'));
+        add_filter('smartcloud_wpsuite_apply_platform_deployment_candidate', array($this, 'applyPlatformDeploymentCandidate'), 10, 2);
         $this->registerRestRoutes();
     }
 
@@ -193,6 +195,7 @@ class HubAdmin
         add_action('customize_register', array($this, 'registerThemeCssCustomizer'));
         add_action('admin_init', array($this, 'migrateLegacyStorage'));
         add_action('admin_menu', array($this, 'mergeLegacyAdminMenu'), PHP_INT_MAX);
+        (new DeploymentReview())->boot();
         $this->navigation = new AdminNavigation($this);
         add_action('admin_menu', array($this->navigation, 'registerMenus'), PHP_INT_MAX);
         add_filter('smartcloud_wpsuite_theme_css_url', array($this, 'filterThemeCssUrl'));
@@ -757,6 +760,26 @@ var WpSuite = __wpsuiteGlobal.WpSuite;
         );
         register_rest_route(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/v1', '/custom-translations', $translation_routes);
         register_rest_route(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/v1', '/custom-translations', $translation_routes);
+    }
+
+    /** Apply only reviewed reCAPTCHA fields through the normal site-settings validator. */
+    public function applyPlatformDeploymentCandidate(mixed $previous, array $values): bool|WP_Error
+    {
+        if (!current_user_can('manage_options')) return new WP_Error('forbidden', 'Forbidden.');
+        $allowed = array_intersect_key($values, array_flip(array('reCaptchaPublicKey', 'useRecaptchaEnterprise')));
+        if (count($allowed) !== 2 || (isset($allowed['reCaptchaPublicKey']) && !is_string($allowed['reCaptchaPublicKey']))
+            || (isset($allowed['useRecaptchaEnterprise']) && !is_bool($allowed['useRecaptchaEnterprise']))) {
+            return new WP_Error('invalid_platform_candidate', 'Invalid reCAPTCHA recommendation.');
+        }
+        $raw = get_option(SMARTCLOUD_WPSUITE_CANONICAL_SLUG . '/site-settings', null);
+        if ($raw === null) $raw = get_option(SMARTCLOUD_WPSUITE_LEGACY_SLUG . '/site-settings', array());
+        $this->siteSettings = BackendProfiles::settings() ?? SiteSettings::fromArray(is_object($raw) ? get_object_vars($raw) : (is_array($raw) ? $raw : array()));
+        $payload = array_replace(get_object_vars($this->siteSettings), $allowed);
+        $request = new WP_REST_Request('POST');
+        $request->set_body(wp_json_encode($payload));
+        $result = $this->updateSiteSettings($request);
+        if (is_wp_error($result)) return $result;
+        return $result instanceof WP_REST_Response && $result->get_status() === 200 && !empty($result->get_data()['success']) ? true : new WP_Error('platform_save_failed', 'Platform settings could not be saved.');
     }
 
     public function updateSiteSettings(WP_REST_Request $request)

@@ -22,6 +22,7 @@ export interface SiteConfigurationResult<T> {
     subscriptionType?: "PROFESSIONAL" | "AGENCY";
     settings: T;
     revision?: number;
+    configCandidate?: unknown;
 }
 export declare function getSitePluginSettings<T>(target: SiteConfigurationTarget, fetcher?: typeof fetch): Promise<SiteConfigurationResult<T>>;
 export declare function putSitePluginSettings<T>(target: SiteConfigurationTarget, settings: T, fetcher?: typeof fetch): Promise<T>;

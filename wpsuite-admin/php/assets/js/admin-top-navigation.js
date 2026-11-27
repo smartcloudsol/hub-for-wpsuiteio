@@ -5,6 +5,7 @@
     const toggle = advanced?.querySelector('.wpsuite-top-navigation__toggle');
     const panel = advanced?.querySelector('.wpsuite-top-navigation__panel');
     if (!advanced || !toggle || !panel || navigation.dataset.navigationReady) return;
+    const pendingReview = panel.querySelector('[data-wpsuite-deployment-review-pending]');
     navigation.dataset.navigationReady = 'true';
     let closeTimer;
     let pointerInside = false;
@@ -13,8 +14,12 @@
     const cancelClose = () => window.clearTimeout(closeTimer);
     const setOpen = (open) => {
       cancelClose();
+      const opening = open && panel.hidden;
       panel.hidden = !open;
       toggle.setAttribute('aria-expanded', String(open));
+      if (opening && pendingReview) {
+        panel.scrollTop += pendingReview.getBoundingClientRect().top - panel.getBoundingClientRect().top - 12;
+      }
       if (!open) pinned = false;
     };
     const scheduleClose = () => {
@@ -59,7 +64,7 @@
       } else if (event.key === 'ArrowDown' && event.target === toggle) {
         event.preventDefault();
         setOpen(true);
-        panel.querySelector('a')?.focus();
+        (pendingReview?.querySelector('a') ?? panel.querySelector('a'))?.focus();
       }
     });
     document.addEventListener('pointerdown', (event) => {

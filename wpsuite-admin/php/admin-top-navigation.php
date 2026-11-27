@@ -40,10 +40,18 @@ final class AdminTopNavigation
             return;
         }
         $this->rendered = true;
+        $reviewPending = !empty($data['deployment_review_url']) && !empty($data['deployment_review_pending']);
         echo '<nav class="wpsuite-top-navigation" aria-label="' . esc_attr(__('WP Suite navigation', 'smartcloud-wpsuite')) . '">';
         echo '<a class="wpsuite-top-navigation__link" href="' . esc_url($data['overview_url']) . '"' . ($data['active'] === 'overview' ? ' aria-current="page"' : '') . '>' . esc_html(__('Overview', 'smartcloud-wpsuite')) . '</a>';
         echo '<div class="wpsuite-top-navigation__advanced">';
-        echo '<button class="wpsuite-top-navigation__toggle wpsuite-top-navigation__tools" type="button" aria-label="' . esc_attr(__('Tools on this site', 'smartcloud-wpsuite')) . '" aria-expanded="false" aria-controls="wpsuite-advanced-navigation">' . esc_html(__('Tools on this site', 'smartcloud-wpsuite')) . ' <svg class="wpsuite-top-navigation__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6" /></svg></button>';
+        echo '<button class="wpsuite-top-navigation__toggle wpsuite-top-navigation__tools" type="button" aria-label="' . esc_attr(__('Tools on this site', 'smartcloud-wpsuite')) . '" aria-expanded="false" aria-controls="wpsuite-advanced-navigation"' . ($reviewPending ? ' aria-describedby="wpsuite-deployment-navigation-pending"' : '') . '>' . esc_html(__('Tools on this site', 'smartcloud-wpsuite'));
+        if ($reviewPending) {
+            echo '<span class="wpsuite-top-navigation__indicator" aria-hidden="true">!</span>';
+        }
+        echo ' <svg class="wpsuite-top-navigation__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6" /></svg></button>';
+        if ($reviewPending) {
+            echo '<span class="screen-reader-text" id="wpsuite-deployment-navigation-pending">' . esc_html__('Deployment settings to review', 'smartcloud-wpsuite') . '</span>';
+        }
         echo '<div class="wpsuite-top-navigation__panel" id="wpsuite-advanced-navigation" hidden><div class="wpsuite-top-navigation__groups">';
         foreach ($data['groups'] as $group) {
             if (empty($group['url'])) { continue; }
@@ -57,6 +65,13 @@ final class AdminTopNavigation
                 echo '<li><a href="' . esc_url($link['url']) . '">' . esc_html($link['label']) . '</a></li>';
             }
             echo '</ul></section>';
+        }
+        if (!empty($data['deployment_review_url'])) {
+            echo '<section class="wpsuite-top-navigation__group"' . ($reviewPending ? ' data-wpsuite-deployment-review-pending' : '') . '><h2><a href="' . esc_url($data['deployment_review_url']) . '"' . ($data['active'] === 'deployment-review' ? ' aria-current="page"' : '') . '>' . esc_html__('Deployment configuration', 'smartcloud-wpsuite') . '</a></h2>';
+            if ($reviewPending) {
+                echo '<p class="wpsuite-top-navigation__review-hint">' . esc_html__('Open Deployment configuration to review the new WordPress settings.', 'smartcloud-wpsuite') . '</p>';
+            }
+            echo '</section>';
         }
         echo '</div></div></div>';
         if (!empty($data['can_manage_connection'])) {
